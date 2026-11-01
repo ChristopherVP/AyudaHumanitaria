@@ -7,7 +7,19 @@ import java.sql.Statement;
 
 public class ConexionBD {
 
+    // ============================================================
+    // MODO DE BASE DE DATOS: deja activa SOLO UNA de las dos líneas
+    // ============================================================
+
+    // OPCIÓN 1 - EN MEMORIA (activa): los datos se pierden al cerrar el programa
+    // y en cada ejecución se cargan de nuevo los datos de ejemplo.
     private static final String URL = "jdbc:h2:mem:ayudahumanitaria;DB_CLOSE_DELAY=-1";
+
+    // OPCIÓN 2 - EN ARCHIVO: los datos se conservan entre ejecuciones
+    // (se guardan en la carpeta ./data/ayudahumanitaria.mv.db).
+    // Para usarla: comenta la línea de la OPCIÓN 1 y quita el comentario de esta.
+    // private static final String URL = "jdbc:h2:file:./data/ayudahumanitaria";
+
     private static final String USUARIO = "sa";
     private static final String CLAVE = "";
 
