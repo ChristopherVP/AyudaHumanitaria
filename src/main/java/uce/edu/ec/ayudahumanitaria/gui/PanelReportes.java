@@ -1,21 +1,32 @@
 package uce.edu.ec.ayudahumanitaria.gui;
 
 import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos;
+import uce.edu.ec.ayudahumanitaria.dominio.AnalisisAyuda;
 import uce.edu.ec.ayudahumanitaria.dominio.Comunidad;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorComunidades;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorVehiculos;
 import uce.edu.ec.ayudahumanitaria.dominio.Vehiculo;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
+import uce.edu.ec.ayudahumanitaria.reportes.ExportadorExcel;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 
 public class PanelReportes extends JPanel {
@@ -71,11 +82,27 @@ public class PanelReportes extends JPanel {
 
         tarjetaVehiculos.add(filaVehiculos, BorderLayout.CENTER);
 
+        JPanel tarjetaEstadistica = EstiloUI.tarjeta("Estadística y exportación a Excel");
+        JPanel filaEstadistica = EstiloUI.fila();
+
+        JButton btnEstadistica = EstiloUI.botonPrimario("Ver estadísticas y conclusiones");
+        btnEstadistica.addActionListener(e -> mostrarEstadisticas());
+        filaEstadistica.add(btnEstadistica);
+
+        JButton btnExcel = EstiloUI.botonAccion("Generar Excel");
+        btnExcel.addActionListener(e -> generarExcel());
+        filaEstadistica.add(btnExcel);
+
+        tarjetaEstadistica.add(filaEstadistica, BorderLayout.CENTER);
+
         tarjetaComunidades.setAlignmentX(Component.LEFT_ALIGNMENT);
         tarjetaVehiculos.setAlignmentX(Component.LEFT_ALIGNMENT);
+        tarjetaEstadistica.setAlignmentX(Component.LEFT_ALIGNMENT);
         panelSecciones.add(tarjetaComunidades);
         panelSecciones.add(Box.createVerticalStrut(12));
         panelSecciones.add(tarjetaVehiculos);
+        panelSecciones.add(Box.createVerticalStrut(12));
+        panelSecciones.add(tarjetaEstadistica);
 
         EstiloUI.estilizarAreaTexto(areaResultados);
         areaResultados.setEditable(false);
@@ -88,6 +115,75 @@ public class PanelReportes extends JPanel {
 
         add(panelSecciones, BorderLayout.NORTH);
         add(tarjetaResultados, BorderLayout.CENTER);
+    }
+
+    private void mostrarEstadisticas() {
+        try {
+            Comunidad[] comunidades = gestorComunidades.listarTodas();
+            if (comunidades.length == 0) {
+                areaResultados.setText("No hay comunidades registradas. Registra al menos una para ver estadísticas.");
+                return;
+            }
+            AnalisisAyuda analisis = new AnalisisAyuda(comunidades, gestorVehiculos.listarTodos());
+            areaResultados.setText(analisis.reporteTexto());
+            areaResultados.setCaretPosition(0);
+        } catch (PersistenciaException ex) {
+            areaResultados.setText(ex.getMessage());
+        }
+    }
+
+    private void generarExcel() {
+        Comunidad[] comunidades;
+        Vehiculo[] vehiculos;
+        try {
+            comunidades = gestorComunidades.listarTodas();
+            vehiculos = gestorVehiculos.listarTodos();
+        } catch (PersistenciaException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Generar Excel", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (comunidades.length == 0) {
+            JOptionPane.showMessageDialog(this, "No hay comunidades registradas para generar el reporte.",
+                    "Generar Excel", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        JFileChooser selector = new JFileChooser();
+        selector.setDialogTitle("Guardar reporte en Excel");
+        selector.setFileFilter(new FileNameExtensionFilter("Libro de Excel (*.xlsx)", "xlsx"));
+        String marca = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
+        selector.setSelectedFile(new File("AyudaHumanitaria_" + marca + ".xlsx"));
+        if (selector.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File destino = selector.getSelectedFile();
+        if (!destino.getName().toLowerCase().endsWith(".xlsx")) {
+            destino = new File(destino.getParentFile(), destino.getName() + ".xlsx");
+        }
+        if (destino.exists() && JOptionPane.showConfirmDialog(this, "El archivo ya existe. ¿Deseas reemplazarlo?",
+                "Generar Excel", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        try {
+            ExportadorExcel.exportar(destino, comunidades, vehiculos);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "No se pudo guardar el archivo. Si lo tienes abierto en Excel, ciérralo "
+                    + "e inténtalo de nuevo.\n" + ex.getMessage(), "Generar Excel", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int abrir = JOptionPane.showConfirmDialog(this, "Excel generado correctamente:\n" + destino.getAbsolutePath()
+                + "\n\n¿Deseas abrirlo ahora?", "Generar Excel", JOptionPane.YES_NO_OPTION);
+        if (abrir == JOptionPane.YES_OPTION && Desktop.isDesktopSupported()) {
+            try {
+                Desktop.getDesktop().open(destino);
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "No se pudo abrir el archivo automáticamente.",
+                        "Generar Excel", JOptionPane.WARNING_MESSAGE);
+            }
+        }
     }
 
     private void reporteComunidadesPorBeneficio() {
