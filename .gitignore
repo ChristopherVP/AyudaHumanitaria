@@ -1,2 +1,5 @@
 # Project exclude paths
 /target/
+
+# Base de datos H2 en archivo (se crea al ejecutar)
+/data/

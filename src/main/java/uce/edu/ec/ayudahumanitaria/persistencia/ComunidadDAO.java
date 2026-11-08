@@ -12,13 +12,17 @@ import java.util.List;
 public class ComunidadDAO {
 
     public void insertar(Comunidad c) throws PersistenciaException {
-        String sql = "INSERT INTO COMUNIDAD (NOMBRE, HABITANTES, PRIORIDAD, RECURSOS_REQUERIDOS) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO COMUNIDAD (NOMBRE, PROVINCIA, HABITANTES, PRIORIDAD, RECURSOS_REQUERIDOS, "
+                + "LATITUD, LONGITUD) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = ConexionBD.obtenerConexion()
                 .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, c.getNombre());
-            ps.setInt(2, c.getHabitantes());
-            ps.setInt(3, c.getPrioridad());
-            ps.setDouble(4, c.getRecursosRequeridos());
+            ps.setString(2, c.getProvincia());
+            ps.setInt(3, c.getHabitantes());
+            ps.setInt(4, c.getPrioridad());
+            ps.setDouble(5, c.getRecursosRequeridos());
+            ps.setDouble(6, c.getLatitud());
+            ps.setDouble(7, c.getLongitud());
             ps.executeUpdate();
 
             try (ResultSet llaves = ps.getGeneratedKeys()) {
@@ -32,14 +36,17 @@ public class ComunidadDAO {
     }
 
     public void actualizar(Comunidad c) throws PersistenciaException {
-        String sql = "UPDATE COMUNIDAD SET NOMBRE = ?, HABITANTES = ?, PRIORIDAD = ?, RECURSOS_REQUERIDOS = ? "
-                + "WHERE ID = ?";
+        String sql = "UPDATE COMUNIDAD SET NOMBRE = ?, PROVINCIA = ?, HABITANTES = ?, PRIORIDAD = ?, "
+                + "RECURSOS_REQUERIDOS = ?, LATITUD = ?, LONGITUD = ? WHERE ID = ?";
         try (PreparedStatement ps = ConexionBD.obtenerConexion().prepareStatement(sql)) {
             ps.setString(1, c.getNombre());
-            ps.setInt(2, c.getHabitantes());
-            ps.setInt(3, c.getPrioridad());
-            ps.setDouble(4, c.getRecursosRequeridos());
-            ps.setInt(5, c.getId());
+            ps.setString(2, c.getProvincia());
+            ps.setInt(3, c.getHabitantes());
+            ps.setInt(4, c.getPrioridad());
+            ps.setDouble(5, c.getRecursosRequeridos());
+            ps.setDouble(6, c.getLatitud());
+            ps.setDouble(7, c.getLongitud());
+            ps.setInt(8, c.getId());
 
             int filasAfectadas = ps.executeUpdate();
             if (filasAfectadas == 0) {
@@ -79,9 +86,12 @@ public class ComunidadDAO {
         return new Comunidad(
                 rs.getInt("ID"),
                 rs.getString("NOMBRE"),
+                rs.getString("PROVINCIA"),
                 rs.getInt("HABITANTES"),
                 rs.getInt("PRIORIDAD"),
-                rs.getDouble("RECURSOS_REQUERIDOS")
+                rs.getDouble("RECURSOS_REQUERIDOS"),
+                rs.getDouble("LATITUD"),
+                rs.getDouble("LONGITUD")
         );
     }
 }

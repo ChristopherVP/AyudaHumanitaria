@@ -16,6 +16,11 @@ public class SplashScreen extends JWindow {
                 BorderFactory.createLineBorder(EstiloUI.AZUL_PRIMARIO, 2),
                 BorderFactory.createEmptyBorder(35, 40, 30, 40)));
 
+        JLabel logo = new JLabel(Logo.icono(96));
+        logo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(logo);
+        panel.add(Box.createVerticalStrut(14));
+
         JLabel titulo = new JLabel("Ayuda Humanitaria");
         titulo.setFont(new Font("SansSerif", Font.BOLD, 30));
         titulo.setForeground(Color.WHITE);
@@ -47,7 +52,8 @@ public class SplashScreen extends JWindow {
         panel.add(estado);
 
         setContentPane(panel);
-        setSize(560, 260);
+        setIconImages(Logo.iconos());
+        setSize(560, 380);
         setLocationRelativeTo(null);
     }
 

@@ -212,6 +212,15 @@ public final class ExportadorExcel {
     // ------------------------------------------------------------------ exportación
 
     public static void exportar(File destino, Comunidad[] comunidades, Vehiculo[] vehiculos) throws IOException {
+        exportar(destino, comunidades, vehiculos, null);
+    }
+
+    /**
+     * Igual que {@link #exportar(File, Comunidad[], Vehiculo[])} pero, si se entregan datos operativos,
+     * agrega las hojas de centros, entregas, plan, itinerario, pendientes y mapas.
+     */
+    public static void exportar(File destino, Comunidad[] comunidades, Vehiculo[] vehiculos, DatosOperativos operativos)
+            throws IOException {
         if (comunidades == null || comunidades.length == 0) {
             throw new IllegalStateException("No hay comunidades registradas para generar el reporte.");
         }
@@ -234,6 +243,9 @@ public final class ExportadorExcel {
             escribirResumen(resumen, e, a, sub);
             escribirConclusiones(hojaK, e, a, sub);
             agregarGraficos(resumen, hojaC, comunidades.length);
+            if (operativos != null) {
+                ExportadorExcelOperativo.agregar(wb, operativos, sub);
+            }
 
             wb.setActiveSheet(0);
             wb.setForceFormulaRecalculation(true);

@@ -1,5 +1,7 @@
 package uce.edu.ec.ayudahumanitaria.gui;
 
+import uce.edu.ec.ayudahumanitaria.dominio.CentroAcopio;
+import uce.edu.ec.ayudahumanitaria.dominio.GestorCentros;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorVehiculos;
 import uce.edu.ec.ayudahumanitaria.dominio.Vehiculo;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
@@ -9,6 +11,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -19,17 +22,21 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.util.List;
 
-public class PanelVehiculos extends JPanel {
+public class PanelVehiculos extends JPanel implements Refrescable {
 
     private final GestorVehiculos gestor;
+    private final GestorCentros gestorCentros;
+    private final Runnable alCambiar;
+    private final JComboBox<CentroAcopio> comboCentro = new JComboBox<>();
 
     private final JTextField campoId = EstiloUI.campoTexto(10);
     private final JTextField campoCapacidad = EstiloUI.campoTexto(10);
     private final JTextField campoBusquedaId = EstiloUI.campoTexto(10);
 
     private final DefaultTableModel modeloTabla = new DefaultTableModel(
-            new Object[]{"ID", "Capacidad", "Asignado", "Comunidad asignada"}, 0) {
+            new Object[]{"ID", "Capacidad (kg)", "Asignado", "Comunidad asignada", "Centro"}, 0) {
         @Override
         public boolean isCellEditable(int fila, int columna) {
             return false;
@@ -43,11 +50,13 @@ public class PanelVehiculos extends JPanel {
     private final JButton btnNuevo = EstiloUI.botonNeutro("Nuevo");
 
     private boolean modoEdicion = false;
-    private final String[] valoresOriginales = new String[1];
+    private final String[] valoresOriginales = new String[2];
     private boolean actualizandoFormulario = false;
 
-    public PanelVehiculos(GestorVehiculos gestor) {
+    public PanelVehiculos(GestorVehiculos gestor, GestorCentros gestorCentros, Runnable alCambiar) {
         this.gestor = gestor;
+        this.gestorCentros = gestorCentros;
+        this.alCambiar = alCambiar;
 
         setLayout(new BorderLayout(12, 12));
         setBackground(EstiloUI.FONDO_APP);
@@ -103,9 +112,10 @@ public class PanelVehiculos extends JPanel {
             }
         };
         campoCapacidad.getDocument().addDocumentListener(detectorCambios);
+        comboCentro.addActionListener(e -> verificarCambios());
 
         volverModoRegistro();
-        cargarTabla();
+        refrescar();
     }
 
     private JPanel construirTarjetaFormulario() {
@@ -116,6 +126,8 @@ public class PanelVehiculos extends JPanel {
         campos.add(campoId);
         campos.add(EstiloUI.etiqueta("Capacidad (kg):"));
         campos.add(campoCapacidad);
+        campos.add(EstiloUI.etiqueta("Centro de acopio:"));
+        campos.add(comboCentro);
 
         JPanel acciones = EstiloUI.fila();
         acciones.add(btnRegistrar);
@@ -152,10 +164,14 @@ public class PanelVehiculos extends JPanel {
 
     private void registrar() {
         try {
-            gestor.registrar(campoId.getText(), Double.parseDouble(campoCapacidad.getText()));
+            CentroAcopio centro = (CentroAcopio) comboCentro.getSelectedItem();
+            if (centro == null) {
+                throw new ValidationException("Registre primero un centro de acopio.");
+            }
+            gestor.registrar(campoId.getText(), Double.parseDouble(campoCapacidad.getText().trim().replace(',', '.')), centro.getId());
             JOptionPane.showMessageDialog(this, "Vehículo registrado correctamente.");
             volverModoRegistro();
-            cargarTabla();
+            cambio();
         } catch (ValidationException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
         } catch (PersistenciaException ex) {
@@ -178,14 +194,18 @@ public class PanelVehiculos extends JPanel {
             boolean asignado = (boolean) modeloTabla.getValueAt(fila, 2);
             Object comunidadAsignada = modeloTabla.getValueAt(fila, 3);
 
-            Vehiculo v = new Vehiculo(id, Double.parseDouble(campoCapacidad.getText()));
+            CentroAcopio centro = (CentroAcopio) comboCentro.getSelectedItem();
+            if (centro == null) {
+                throw new ValidationException("Seleccione un centro de acopio.");
+            }
+            Vehiculo v = new Vehiculo(id, Double.parseDouble(campoCapacidad.getText().trim().replace(',', '.')), centro.getId());
             v.setAsignado(asignado);
             v.setComunidadAsignada(comunidadAsignada == null ? null : comunidadAsignada.toString());
 
             gestor.modificar(v);
             JOptionPane.showMessageDialog(this, "Vehículo actualizado correctamente.");
             volverModoRegistro();
-            cargarTabla();
+            cambio();
         } catch (ValidationException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
         } catch (PersistenciaException ex) {
@@ -206,7 +226,9 @@ public class PanelVehiculos extends JPanel {
             String id = modeloTabla.getValueAt(fila, 0).toString();
             gestor.eliminar(id);
             volverModoRegistro();
-            cargarTabla();
+            cambio();
+        } catch (ValidationException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
         } catch (PersistenciaException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
         }
@@ -232,7 +254,7 @@ public class PanelVehiculos extends JPanel {
         modeloTabla.setRowCount(0);
         for (Vehiculo v : vehiculos) {
             modeloTabla.addRow(new Object[]{
-                    v.getId(), v.getCapacidad(), v.isAsignado(), v.getComunidadAsignada()
+                    v.getId(), v.getCapacidad() == Math.rint(v.getCapacidad()) ? (Object) (long) v.getCapacidad() : (Object) v.getCapacidad(), v.isAsignado(), v.getComunidadAsignada(), v.getCentroNombre()
             });
         }
     }
@@ -245,6 +267,12 @@ public class PanelVehiculos extends JPanel {
 
         actualizandoFormulario = true;
         valoresOriginales[0] = modeloTabla.getValueAt(fila, 1).toString();
+        valoresOriginales[1] = String.valueOf(modeloTabla.getValueAt(fila, 4));
+        for (int i = 0; i < comboCentro.getItemCount(); i++) {
+            if (comboCentro.getItemAt(i).getNombre().equals(valoresOriginales[1])) {
+                comboCentro.setSelectedIndex(i);
+            }
+        }
 
         campoId.setText(modeloTabla.getValueAt(fila, 0).toString());
         campoId.setEditable(false);
@@ -261,7 +289,9 @@ public class PanelVehiculos extends JPanel {
         if (actualizandoFormulario || !modoEdicion) {
             return;
         }
-        boolean cambio = !campoCapacidad.getText().equals(valoresOriginales[0]);
+        CentroAcopio centro = (CentroAcopio) comboCentro.getSelectedItem();
+        boolean cambio = !campoCapacidad.getText().equals(valoresOriginales[0])
+                || (centro != null && !centro.getNombre().equals(valoresOriginales[1]));
         btnModificar.setEnabled(cambio);
     }
 
@@ -273,6 +303,27 @@ public class PanelVehiculos extends JPanel {
         btnRegistrar.setVisible(true);
         btnModificar.setEnabled(false);
         btnEliminar.setEnabled(false);
+    }
+
+    private void cambio() {
+        refrescar();
+        alCambiar.run();
+    }
+
+    @Override
+    public void refrescar() {
+        try {
+            Object anterior = comboCentro.getSelectedItem();
+            List<CentroAcopio> centros = gestorCentros.listar();
+            comboCentro.removeAllItems();
+            centros.forEach(comboCentro::addItem);
+            if (anterior != null) {
+                comboCentro.setSelectedItem(anterior);
+            }
+        } catch (PersistenciaException ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
+        }
+        cargarTabla();
     }
 
     private void limpiarFormulario() {

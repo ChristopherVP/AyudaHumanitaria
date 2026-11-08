@@ -2,6 +2,7 @@ package uce.edu.ec.ayudahumanitaria.dominio;
 
 import uce.edu.ec.ayudahumanitaria.persistencia.ComunidadDAO;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
+import uce.edu.ec.ayudahumanitaria.persistencia.PlanDAO;
 import uce.edu.ec.ayudahumanitaria.util.ValidationException;
 import uce.edu.ec.ayudahumanitaria.util.Validador;
 
@@ -12,29 +13,55 @@ import java.util.List;
 public class GestorComunidades {
 
     private final ComunidadDAO dao = new ComunidadDAO();
+    private final PlanDAO planDao = new PlanDAO();
 
-    public void registrar(String nombre, int habitantes, int prioridad, double recursos)
-            throws ValidationException, PersistenciaException {
-
-        Validador.validarTexto(nombre, "nombre");
-        Validador.validarPositivo(habitantes, "habitantes");
-        Validador.validarRangoPrioridad(prioridad);
-        Validador.validarPositivo(recursos, "recursos requeridos");
-
-        dao.insertar(new Comunidad(nombre, habitantes, prioridad, recursos));
+    public Comunidad registrar(String nombre, String provincia, int habitantes, int prioridad, double recursos,
+                               double latitud, double longitud) throws ValidationException, PersistenciaException {
+        Comunidad nueva = validar(0, nombre, provincia, habitantes, prioridad, recursos, latitud, longitud);
+        verificarNombreUnico(nueva.getNombre(), 0);
+        dao.insertar(nueva);
+        return nueva;
     }
 
     public void modificar(Comunidad c) throws ValidationException, PersistenciaException {
-        Validador.validarTexto(c.getNombre(), "nombre");
-        Validador.validarPositivo(c.getHabitantes(), "habitantes");
-        Validador.validarRangoPrioridad(c.getPrioridad());
-        Validador.validarPositivo(c.getRecursosRequeridos(), "recursos requeridos");
+        Comunidad validada = validar(c.getId(), c.getNombre(), c.getProvincia(), c.getHabitantes(),
+                c.getPrioridad(), c.getRecursosRequeridos(), c.getLatitud(), c.getLongitud());
+        verificarNombreUnico(validada.getNombre(), c.getId());
 
-        dao.actualizar(c);
+        double planificado = planDao.toneladasPlanificadas().getOrDefault(c.getId(), 0.0);
+        if (validada.getRecursosRequeridos() + 0.06 < planificado) {
+            throw new ValidationException("La comunidad ya tiene " + String.format("%.2f", planificado)
+                    + " t comprometidas en planes de distribución; los recursos requeridos no pueden ser menores.");
+        }
+        dao.actualizar(validada);
     }
 
-    public void eliminar(int id) throws PersistenciaException {
+    /** Una comunidad con viajes planificados o en ruta no se puede eliminar. */
+    public void eliminar(int id) throws ValidationException, PersistenciaException {
+        if (planDao.contarViajesVigentesDeComunidad(id) > 0) {
+            throw new ValidationException("La comunidad tiene entregas planificadas o en ruta. "
+                    + "Cancele el plan o espere a que termine.");
+        }
         dao.eliminar(id);
+    }
+
+    private Comunidad validar(int id, String nombre, String provincia, int habitantes, int prioridad,
+                              double recursos, double latitud, double longitud) throws ValidationException {
+        String nombreLimpio = Validador.validarNombre(nombre, "nombre");
+        Validador.validarRango(habitantes, 1, Validador.MAX_HABITANTES, "habitantes");
+        Validador.validarRangoPrioridad(prioridad);
+        Validador.validarRango(recursos, Validador.MIN_RECURSOS_TON, Validador.MAX_RECURSOS_TON,
+                "recursos requeridos (toneladas)");
+        String provinciaValida = Validador.validarUbicacion(provincia, latitud, longitud);
+        return new Comunidad(id, nombreLimpio, provinciaValida, habitantes, prioridad, recursos, latitud, longitud);
+    }
+
+    private void verificarNombreUnico(String nombre, int idPropio) throws ValidationException, PersistenciaException {
+        for (Comunidad existente : dao.listarTodas()) {
+            if (existente.getId() != idPropio && existente.getNombre().equalsIgnoreCase(nombre)) {
+                throw new ValidationException("Ya existe una comunidad llamada " + nombre + ".");
+            }
+        }
     }
 
     public Comunidad[] listarTodas() throws PersistenciaException {

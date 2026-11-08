@@ -12,12 +12,13 @@ import java.util.List;
 public class VehiculoDAO {
 
     public void insertar(Vehiculo v) throws PersistenciaException {
-        String sql = "INSERT INTO VEHICULO (ID, CAPACIDAD, ASIGNADO, COMUNIDAD_ASIGNADA) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO VEHICULO (ID, CAPACIDAD, ASIGNADO, COMUNIDAD_ASIGNADA, CENTRO_ID) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement ps = ConexionBD.obtenerConexion().prepareStatement(sql)) {
             ps.setString(1, v.getId());
             ps.setDouble(2, v.getCapacidad());
             ps.setBoolean(3, v.isAsignado());
             ps.setString(4, v.getComunidadAsignada());
+            asignarCentro(ps, 5, v.getCentroId());
             ps.executeUpdate();
         } catch (SQLException ex) {
             if (ex.getSQLState() != null && ex.getSQLState().startsWith("23")) {
@@ -29,12 +30,13 @@ public class VehiculoDAO {
     }
 
     public void actualizar(Vehiculo v) throws PersistenciaException {
-        String sql = "UPDATE VEHICULO SET CAPACIDAD = ?, ASIGNADO = ?, COMUNIDAD_ASIGNADA = ? WHERE ID = ?";
+        String sql = "UPDATE VEHICULO SET CAPACIDAD = ?, ASIGNADO = ?, COMUNIDAD_ASIGNADA = ?, CENTRO_ID = ? WHERE ID = ?";
         try (PreparedStatement ps = ConexionBD.obtenerConexion().prepareStatement(sql)) {
             ps.setDouble(1, v.getCapacidad());
             ps.setBoolean(2, v.isAsignado());
             ps.setString(3, v.getComunidadAsignada());
-            ps.setString(4, v.getId());
+            asignarCentro(ps, 4, v.getCentroId());
+            ps.setString(5, v.getId());
 
             int filasAfectadas = ps.executeUpdate();
             if (filasAfectadas == 0) {
@@ -56,7 +58,7 @@ public class VehiculoDAO {
     }
 
     public List<Vehiculo> listarTodos() throws PersistenciaException {
-        String sql = "SELECT * FROM VEHICULO";
+        String sql = "SELECT V.*, C.NOMBRE AS CENTRO_NOMBRE FROM VEHICULO V LEFT JOIN CENTRO C ON C.ID = V.CENTRO_ID";
         List<Vehiculo> resultado = new ArrayList<>();
 
         try (Statement st = ConexionBD.obtenerConexion().createStatement();
@@ -74,6 +76,17 @@ public class VehiculoDAO {
         Vehiculo v = new Vehiculo(rs.getString("ID"), rs.getDouble("CAPACIDAD"));
         v.setAsignado(rs.getBoolean("ASIGNADO"));
         v.setComunidadAsignada(rs.getString("COMUNIDAD_ASIGNADA"));
+        v.setCentroId(rs.getInt("CENTRO_ID"));   // 0 si es NULL
+        v.setCentroNombre(rs.getString("CENTRO_NOMBRE"));
         return v;
+    }
+
+    /** CENTRO_ID NULL cuando el vehículo no tiene centro (id 0). */
+    private void asignarCentro(PreparedStatement ps, int indice, int centroId) throws SQLException {
+        if (centroId > 0) {
+            ps.setInt(indice, centroId);
+        } else {
+            ps.setNull(indice, java.sql.Types.INTEGER);
+        }
     }
 }

@@ -1,8 +1,11 @@
 package uce.edu.ec.ayudahumanitaria.ejecutable;
 
 import uce.edu.ec.ayudahumanitaria.dominio.DatosEjemplo;
+import uce.edu.ec.ayudahumanitaria.dominio.GestorCentros;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorComunidades;
+import uce.edu.ec.ayudahumanitaria.dominio.GestorPlanes;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorVehiculos;
+import uce.edu.ec.ayudahumanitaria.gui.Logo;
 import uce.edu.ec.ayudahumanitaria.gui.SplashScreen;
 import uce.edu.ec.ayudahumanitaria.gui.VentanaPrincipal;
 import uce.edu.ec.ayudahumanitaria.persistencia.ConexionBD;
@@ -15,8 +18,11 @@ import java.util.concurrent.ExecutionException;
 public class Main {
 
     public static void main(String[] args) {
+        Logo.instalarIconoDeAplicacion();
+        GestorCentros gestorCentros = new GestorCentros();
         GestorComunidades gestorComunidades = new GestorComunidades();
         GestorVehiculos gestorVehiculos = new GestorVehiculos();
+        GestorPlanes gestorPlanes = new GestorPlanes();
 
         SwingUtilities.invokeLater(() -> {
             SplashScreen splash = new SplashScreen();
@@ -30,7 +36,8 @@ public class Main {
                     Thread.sleep(600);
 
                     splash.actualizar(60, "Cargando datos...");
-                    DatosEjemplo.cargarSiVacio(gestorComunidades, gestorVehiculos);
+                    DatosEjemplo.cargarSiVacio(gestorCentros, gestorComunidades, gestorVehiculos);
+                    gestorPlanes.sincronizar();
                     Thread.sleep(600);
 
                     splash.actualizar(90, "Iniciando interfaz...");
@@ -56,7 +63,7 @@ public class Main {
                     }
 
                     Runtime.getRuntime().addShutdownHook(new Thread(ConexionBD::cerrarConexion));
-                    new VentanaPrincipal(gestorComunidades, gestorVehiculos).setVisible(true);
+                    new VentanaPrincipal(gestorCentros, gestorComunidades, gestorVehiculos, gestorPlanes).setVisible(true);
                 }
             }.execute();
         });

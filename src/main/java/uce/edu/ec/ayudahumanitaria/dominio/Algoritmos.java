@@ -165,7 +165,7 @@ public class Algoritmos {
     }
 
     private static <T> int busquedaBinariaRecursiva(T[] arregloOrdenado, T valor, Comparator<T> comparador,
-                                                      int l, int r) {
+                                                    int l, int r) {
         if (l > r) {
             return -1;
         }
@@ -236,7 +236,9 @@ public class Algoritmos {
         double[] valores = new double[n];
 
         for (int i = 0; i < n; i++) {
-            pesos[i] = (int) Math.round(comunidades[i].getRecursosRequeridos());
+            // ceil (no round): el peso entero nunca subestima lo que realmente se carga, así la
+            // selección jamás supera la capacidad real del envío.
+            pesos[i] = (int) Math.ceil(comunidades[i].getRecursosRequeridos());
             valores[i] = comunidades[i].calcularBeneficio();
         }
 
@@ -293,8 +295,8 @@ public class Algoritmos {
     }
 
     private static void backtrack(String[] nombres, double[][] distancias, boolean[] visitado,
-                                   String[] rutaActual, int nivel, double distanciaAcumulada,
-                                   ResultadoRuta resultado) {
+                                  String[] rutaActual, int nivel, double distanciaAcumulada,
+                                  ResultadoRuta resultado) {
 
         resultado.nodosExplorados++;
 
@@ -406,9 +408,9 @@ public class Algoritmos {
     }
 
     private static void ramificarAsignacion(Vehiculo[] vehiculos, Comunidad[] comunidades, boolean[] usados,
-                                             int[] asignacionActual, int indice, int coberturaActual,
-                                             double desperdicioAcumulado, MejorSolucionAsignacion mejor,
-                                             int[] mejorAsignacion) {
+                                            int[] asignacionActual, int indice, int coberturaActual,
+                                            double desperdicioAcumulado, MejorSolucionAsignacion mejor,
+                                            int[] mejorAsignacion) {
 
         mejor.nodosExplorados++;
 
