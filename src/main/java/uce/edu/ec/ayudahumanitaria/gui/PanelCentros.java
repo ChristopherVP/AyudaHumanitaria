@@ -4,13 +4,11 @@ import uce.edu.ec.ayudahumanitaria.dominio.CentroAcopio;
 import uce.edu.ec.ayudahumanitaria.dominio.Comunidad;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorCentros;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorComunidades;
-import uce.edu.ec.ayudahumanitaria.geo.CatalogoEcuador;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
 import uce.edu.ec.ayudahumanitaria.util.ValidationException;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -33,15 +31,15 @@ public class PanelCentros extends JPanel implements Refrescable {
     private final Runnable alCambiar;
 
     private final JTextField campoNombre = EstiloUI.campoTexto(16);
-    private final JTextField campoCiudad = EstiloUI.campoTexto(12);
-    private final JComboBox<String> comboProvincia = new JComboBox<>(CatalogoEcuador.nombresProvincias());
+    private final JTextField campoDireccion = EstiloUI.campoTexto(28);
+    private final javax.swing.JLabel etiquetaUbicacion = EstiloUI.etiqueta("Elija el punto en el mapa");
     private final JTextField campoLatitud = EstiloUI.campoTexto(8);
     private final JTextField campoLongitud = EstiloUI.campoTexto(8);
     private final JTextField campoStock = EstiloUI.campoTexto(8);
     private final JTextField campoReabastecer = EstiloUI.campoTexto(6);
 
     private final DefaultTableModel modelo = new DefaultTableModel(
-            new Object[]{"ID", "Nombre", "Ciudad", "Provincia", "Latitud", "Longitud", "Stock (t)"}, 0) {
+            new Object[]{"ID", "Nombre", "Dirección", "Ciudad", "Provincia", "Stock (t)"}, 0) {
         @Override
         public boolean isCellEditable(int fila, int columna) {
             return false;
@@ -70,7 +68,7 @@ public class PanelCentros extends JPanel implements Refrescable {
         setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
         EstiloUI.estilizarTabla(tabla);
-        Tablas.anchos(tabla, 35, 210, 90, 120, 70, 70, 75);
+        Tablas.anchos(tabla, 35, 160, 200, 90, 110, 70);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createLineBorder(EstiloUI.BORDE_SUAVE, 1));
         JPanel tarjetaTabla = EstiloUI.tarjeta("Centros de acopio");
@@ -99,6 +97,7 @@ public class PanelCentros extends JPanel implements Refrescable {
                 cargarSeleccion();
             }
         });
+        nuevo();
         refrescar();
     }
 
@@ -110,14 +109,14 @@ public class PanelCentros extends JPanel implements Refrescable {
         g.insets = new Insets(4, 6, 4, 6);
         g.anchor = GridBagConstraints.WEST;
         agregar(campos, g, 0, 0, "Nombre:", campoNombre);
-        agregar(campos, g, 2, 0, "Ciudad:", campoCiudad);
-        agregar(campos, g, 4, 0, "Provincia:", comboProvincia);
+        agregar(campos, g, 2, 0, "Dirección:", campoDireccion);
         agregar(campos, g, 0, 1, "Latitud:", campoLatitud);
         agregar(campos, g, 2, 1, "Longitud:", campoLongitud);
         g.gridx = 4;
         g.gridy = 1;
         campos.add(btnMapa, g);
         agregar(campos, g, 0, 2, "Stock inicial (t):", campoStock);
+        agregar(campos, g, 2, 2, "Ciudad · Provincia:", etiquetaUbicacion);
 
         JPanel acciones = EstiloUI.fila();
         acciones.add(btnRegistrar);
@@ -152,12 +151,15 @@ public class PanelCentros extends JPanel implements Refrescable {
 
     private void registrar() {
         try {
-            gestor.registrar(campoNombre.getText(), campoCiudad.getText(), (String) comboProvincia.getSelectedItem(),
-                    numero(campoLatitud, "latitud"), numero(campoLongitud, "longitud"), numero(campoStock, "stock"));
+            double lat = numero(campoLatitud, "latitud");
+            double lon = numero(campoLongitud, "longitud");
+            UbicacionAutomatica u = ubicacion(lat, lon);
+            gestor.registrar(campoNombre.getText(), campoDireccion.getText(), u.ciudad(), u.provincia(), lat, lon,
+                    numero(campoStock, "stock"));
             aviso("Centro registrado correctamente.");
             nuevo();
             cambio();
-        } catch (ValidationException | PersistenciaException | NumberFormatException ex) {
+        } catch (ValidationException | PersistenciaException | IllegalArgumentException ex) {
             error(ex);
         }
     }
@@ -168,13 +170,15 @@ public class PanelCentros extends JPanel implements Refrescable {
             return;
         }
         try {
-            gestor.modificar(seleccionado, campoNombre.getText(), campoCiudad.getText(),
-                    (String) comboProvincia.getSelectedItem(), numero(campoLatitud, "latitud"),
-                    numero(campoLongitud, "longitud"), numero(campoStock, "stock"));
+            double lat = numero(campoLatitud, "latitud");
+            double lon = numero(campoLongitud, "longitud");
+            UbicacionAutomatica u = ubicacion(lat, lon);
+            gestor.modificar(seleccionado, campoNombre.getText(), campoDireccion.getText(), u.ciudad(), u.provincia(),
+                    lat, lon, numero(campoStock, "stock"));
             aviso("Centro actualizado correctamente.");
             nuevo();
             cambio();
-        } catch (ValidationException | PersistenciaException | NumberFormatException ex) {
+        } catch (ValidationException | PersistenciaException | IllegalArgumentException ex) {
             error(ex);
         }
     }
@@ -224,6 +228,7 @@ public class PanelCentros extends JPanel implements Refrescable {
                     .ifPresent(p -> {
                         campoLatitud.setText(String.format(Locale.US, "%.4f", p[0]));
                         campoLongitud.setText(String.format(Locale.US, "%.4f", p[1]));
+                        mostrarUbicacion(p[0], p[1]);
                     });
         } catch (PersistenciaException ex) {
             error(ex);
@@ -234,7 +239,8 @@ public class PanelCentros extends JPanel implements Refrescable {
         seleccionado = null;
         tabla.clearSelection();
         campoNombre.setText("");
-        campoCiudad.setText("");
+        campoDireccion.setText("");
+        etiquetaUbicacion.setText("Elija el punto en el mapa");
         campoLatitud.setText("");
         campoLongitud.setText("");
         campoStock.setText("");
@@ -251,8 +257,8 @@ public class PanelCentros extends JPanel implements Refrescable {
         }
         seleccionado = centros.get(tabla.convertRowIndexToModel(fila));
         campoNombre.setText(seleccionado.getNombre());
-        campoCiudad.setText(seleccionado.getCiudad());
-        comboProvincia.setSelectedItem(seleccionado.getProvincia());
+        campoDireccion.setText(seleccionado.getDireccion());
+        etiquetaUbicacion.setText(seleccionado.getCiudad() + " · " + seleccionado.getProvincia());
         campoLatitud.setText(String.format(Locale.US, "%.4f", seleccionado.getLatitud()));
         campoLongitud.setText(String.format(Locale.US, "%.4f", seleccionado.getLongitud()));
         campoStock.setText(String.format(Locale.US, "%.1f", seleccionado.getStockToneladas()));
@@ -273,16 +279,26 @@ public class PanelCentros extends JPanel implements Refrescable {
             centros = new ArrayList<>(gestor.listar());
             modelo.setRowCount(0);
             for (CentroAcopio c : centros) {
-                modelo.addRow(new Object[]{c.getId(), c.getNombre(), c.getCiudad(), c.getProvincia(),
-                        String.format(Locale.US, "%.4f", c.getLatitud()), String.format(Locale.US, "%.4f", c.getLongitud()),
+                modelo.addRow(new Object[]{c.getId(), c.getNombre(), c.getDireccion(), c.getCiudad(), c.getProvincia(),
                         String.format(Locale.US, "%.1f", c.getStockToneladas())});
             }
             mapa.setDatos(centros, List.of(gestorComunidades.listarTodas()), List.of());
         } catch (PersistenciaException ex) {
             error(ex);
         }
-        if (seleccionado == null) {
-            nuevo();
+        // Importante: aquí NO se limpia el formulario; si no, el temporizador o el cambio de pestaña
+        // borrarían lo que el usuario está escribiendo.
+    }
+
+    private static UbicacionAutomatica ubicacion(double lat, double lon) {
+        return UbicacionAutomatica.de(lat, lon);
+    }
+
+    private void mostrarUbicacion(double lat, double lon) {
+        try {
+            etiquetaUbicacion.setText(ubicacion(lat, lon).resumen());
+        } catch (IllegalArgumentException ex) {
+            etiquetaUbicacion.setText(ex.getMessage());
         }
     }
 
@@ -305,7 +321,7 @@ public class PanelCentros extends JPanel implements Refrescable {
     }
 
     private void error(Exception ex) {
-        boolean validacion = ex instanceof ValidationException || ex instanceof NumberFormatException;
+        boolean validacion = ex instanceof ValidationException || ex instanceof IllegalArgumentException;
         JOptionPane.showMessageDialog(this, ex.getMessage(), validacion ? "Validación" : "Error de base de datos",
                 validacion ? JOptionPane.WARNING_MESSAGE : JOptionPane.ERROR_MESSAGE);
     }

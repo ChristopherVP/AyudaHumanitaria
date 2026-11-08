@@ -17,6 +17,7 @@ public class Comunidad {
     private String provincia = "";
     private double latitud;
     private double longitud;
+    private String direccion = "";
 
     public Comunidad(String nombre, int habitantes, int prioridad, double recursosRequeridos) {
         this.nombre = nombre;
@@ -38,6 +39,12 @@ public class Comunidad {
         this.longitud = longitud;
     }
 
+    public Comunidad(int id, String nombre, String provincia, int habitantes, int prioridad,
+                     double recursosRequeridos, double latitud, double longitud, String direccion) {
+        this(id, nombre, provincia, habitantes, prioridad, recursosRequeridos, latitud, longitud);
+        this.direccion = direccion == null ? "" : direccion;
+    }
+
     public double calcularBeneficio() {
         return (double) habitantes * prioridad;
     }
@@ -49,7 +56,7 @@ public class Comunidad {
 
     /** Copia de esta comunidad con otra cantidad de recursos (no modifica el original). */
     public Comunidad conRecursos(double nuevosRecursos) {
-        return new Comunidad(id, nombre, provincia, habitantes, prioridad, nuevosRecursos, latitud, longitud);
+        return new Comunidad(id, nombre, provincia, habitantes, prioridad, nuevosRecursos, latitud, longitud, direccion);
     }
 
     public int getId() {
@@ -98,6 +105,15 @@ public class Comunidad {
 
     public void setProvincia(String provincia) {
         this.provincia = provincia == null ? "" : provincia;
+    }
+
+    /** Dirección o referencia de ubicación (obligatoria al registrar). */
+    public String getDireccion() {
+        return direccion;
+    }
+
+    public void setDireccion(String direccion) {
+        this.direccion = direccion == null ? "" : direccion;
     }
 
     public double getLatitud() {

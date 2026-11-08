@@ -20,11 +20,11 @@ public class DatosEjemplo {
             throws ValidationException, PersistenciaException {
 
         if (gestorCentros.listar().isEmpty()) {
-            gestorCentros.registrar("Centro Quito", "Quito", "Pichincha", -0.1807, -78.4678, 150);
-            gestorCentros.registrar("Centro Guayaquil", "Guayaquil", "Guayas", -2.1894, -79.8891, 180);
-            gestorCentros.registrar("Centro Cuenca", "Cuenca", "Azuay", -2.9001, -79.0059, 120);
-            gestorCentros.registrar("Centro Amazonía Norte (Nueva Loja)", "Nueva Loja", "Sucumbíos", 0.0847, -76.8950, 90);
-            gestorCentros.registrar("Centro Amazonía Sur (Macas)", "Macas", "Morona Santiago", -2.3087, -78.1167, 90);
+            gestorCentros.registrar("Centro Quito", "Bodega zona sur, sector Quitumbe (referencia)", "Quito", "Pichincha", -0.1807, -78.4678, 150);
+            gestorCentros.registrar("Centro Guayaquil", "Bodega norte, vía a Daule (referencia)", "Guayaquil", "Guayas", -2.1894, -79.8891, 180);
+            gestorCentros.registrar("Centro Cuenca", "Bodega Parque Industrial (referencia)", "Cuenca", "Azuay", -2.9001, -79.0059, 120);
+            gestorCentros.registrar("Centro Amazonía Norte (Nueva Loja)", "Zona central de Nueva Loja (referencia)", "Nueva Loja", "Sucumbíos", 0.0847, -76.8950, 90);
+            gestorCentros.registrar("Centro Amazonía Sur (Macas)", "Zona central de Macas (referencia)", "Macas", "Morona Santiago", -2.3087, -78.1167, 90);
         }
 
         if (gestorVehiculos.listarTodos().length == 0) {
@@ -73,7 +73,7 @@ public class DatosEjemplo {
                     {"Yantzaza", "Zamora Chinchipe", 7500, 5, 5.5, -3.8333, -78.7500}
             };
             for (Object[] d : datos) {
-                gestorComunidades.registrar((String) d[0], (String) d[1], (Integer) d[2], (Integer) d[3],
+                gestorComunidades.registrar((String) d[0], "Cabecera de " + d[0] + ", " + d[1] + " (referencia)", (String) d[1], (Integer) d[2], (Integer) d[3],
                         (Double) d[4], (Double) d[5], (Double) d[6]);
             }
         }

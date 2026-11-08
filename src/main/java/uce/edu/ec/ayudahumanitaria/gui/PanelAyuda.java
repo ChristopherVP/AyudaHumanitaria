@@ -32,11 +32,14 @@ public class PanelAyuda extends JPanel {
             <a name='flujo'></a><h2 style='color:#195a9e;'>1. Flujo de trabajo recomendado</h2>
             <ol>
               <li><b>Centros:</b> revise o registre los centros de acopio y su stock (toneladas).</li>
-              <li><b>Comunidades:</b> registre comunidades con provincia, habitantes, prioridad, recursos
-                  requeridos y ubicación (coordenadas o clic en el mapa).</li>
+              <li><b>Comunidades:</b> registre comunidades con <b>dirección (obligatoria)</b>, habitantes, prioridad,
+                  recursos requeridos y ubicación: al elegir el punto en el mapa, la <b>ciudad y la provincia se
+                  completan solas</b>.</li>
               <li><b>Vehículos:</b> cada vehículo pertenece a un centro y tiene capacidad en kg.</li>
-              <li><b>Planificación:</b> elija fecha y hora de salida y pulse <i>Simular</i>. Revise viajes,
-                  itinerario y mapa. Si está conforme, pulse <i>Confirmar plan</i>.</li>
+              <li><b>Planificación:</b> <b>primero elija qué vehículos envía cada centro y cuántos viajes hace cada uno</b>
+                  (o pulse <i>Recomendar vehículos</i>), luego fecha y hora de salida y <i>Simular</i>. Sin vehículos
+                  elegidos no se puede planificar. <i>Simulación rápida</i> hace todo con la sugerencia, sin guardar.
+                  Si está conforme, pulse <i>Confirmar plan</i>.</li>
               <li><b>Reportes:</b> exporte el plan a Excel o PDF (con mapas) para sus registros.</li>
             </ol>
 
@@ -62,7 +65,8 @@ public class PanelAyuda extends JPanel {
             <p>Al simular, el programa calcula para cada viaje la hora de salida, de llegada a cada comunidad y de
             regreso. Supuestos (editables en el código, <code>ParametrosSimulacion</code>):</p>
             <ul>
-              <li>Velocidad media 50 km/h; máximo 8 h de conducción por día; descanso de 10 h entre jornadas.</li>
+              <li>Velocidad según el <b>estudio vial</b> (Costa 58, Sierra 48, Amazonía 42 km/h, menos si la provincia tiene
+                  muchas vías en mal estado); máximo 8 h de conducción por día; descanso de 10 h entre jornadas.</li>
               <li>Descarga: 30 min por parada + 10 min por tonelada.</li>
               <li>2 h de preparación antes de que un vehículo salga a otro viaje.</li>
               <li>Máximo 7 paradas por viaje.</li>
@@ -77,17 +81,23 @@ public class PanelAyuda extends JPanel {
               <li><b>Mochila 0/1 (programación dinámica)</b> — arma los grupos de comunidades que caben en un vehículo,
                   maximizando el beneficio.</li>
               <li><b>Branch and Bound</b> — asigna vehículos a grupos minimizando el desperdicio de capacidad.</li>
-              <li><b>Backtracking con poda</b> — ordena las paradas de cada viaje para recorrer la menor distancia.</li>
+              <li><b>Backtracking con poda</b> — ordena las paradas de cada viaje para llegar antes a las comunidades de
+                  mayor prioridad (beneficio por habitante) sin alargar de más el recorrido.</li>
               <li><b>Ordenamientos y búsquedas</b> — ordenan y buscan listas en toda la aplicación.</li>
             </ol>
-            <p>La pestaña <i>Algoritmos</i> permite probar cada uno por separado con los datos reales (no modifica la base).</p>
+            <p>Si un vehículo tiene 2 o más viajes, todos salen primero y repiten en rondas: el 2.º viaje sale cuando el
+            vehículo regresó y se preparó, y atiende lo siguiente por prioridad (la columna <i>Viaje</i> muestra «2 de 3»).</p>
+            <p>La pestaña <i>Algoritmos</i> muestra qué necesita cada comunidad, cuánto hay disponible, limita los campos a
+            valores con sentido y permite probar cada uno por separado con los datos reales (no modifica la base).</p>
 
             <a name='mapa'></a><h2 style='color:#195a9e;'>7. Cómo leer el mapa</h2>
             <ul>
               <li><b>Círculo verde grande:</b> centro de acopio (anillo del color de su zona).</li>
               <li><b>Punto gris oscuro:</b> comunidad. <b>Punto gris claro:</b> ciudad de referencia.</li>
               <li><b>Línea de color:</b> ruta del viaje (un color por centro). <b>Círculo rojo numerado:</b> parada.</li>
-              <li><b>Línea gris:</b> red vial esquemática.</li>
+              <li><b>Líneas de carretera:</b> color según el estado referencial de las vías de la provincia (rojo = 70 % o más
+                  en mal estado, naranja = 50–69 %, verde = menos, gris = sin dato); grosor según importancia. El panel
+                  derecho del mapa detalla corredores, provincias y fuentes. No es tránsito en tiempo real.</li>
             </ul>
             <p>Rueda del mouse = zoom · arrastrar = mover · doble clic = restablecer. El mapa es <b>esquemático</b>:
             las distancias son estimadas (línea recta × 1.35), no de un servicio de navegación.</p>

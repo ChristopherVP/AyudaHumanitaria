@@ -14,16 +14,16 @@ public class GestorCentros {
     private final CentroDAO dao = new CentroDAO();
     private final PlanDAO planDao = new PlanDAO();
 
-    public CentroAcopio registrar(String nombre, String ciudad, String provincia, double latitud, double longitud,
-                                  double stock) throws ValidationException, PersistenciaException {
-        CentroAcopio nuevo = validar(0, nombre, ciudad, provincia, latitud, longitud, stock);
+    public CentroAcopio registrar(String nombre, String direccion, String ciudad, String provincia, double latitud,
+                                  double longitud, double stock) throws ValidationException, PersistenciaException {
+        CentroAcopio nuevo = validar(0, nombre, direccion, ciudad, provincia, latitud, longitud, stock);
         verificarNombreUnico(nuevo.getNombre(), 0);
         return dao.insertar(nuevo);
     }
 
-    public void modificar(CentroAcopio original, String nombre, String ciudad, String provincia, double latitud,
-                          double longitud, double stock) throws ValidationException, PersistenciaException {
-        CentroAcopio nuevo = validar(original.getId(), nombre, ciudad, provincia, latitud, longitud, stock);
+    public void modificar(CentroAcopio original, String nombre, String direccion, String ciudad, String provincia,
+                          double latitud, double longitud, double stock) throws ValidationException, PersistenciaException {
+        CentroAcopio nuevo = validar(original.getId(), nombre, direccion, ciudad, provincia, latitud, longitud, stock);
         verificarNombreUnico(nuevo.getNombre(), original.getId());
         boolean cambioUbicacion = Math.abs(original.getLatitud() - latitud) > 1e-9
                 || Math.abs(original.getLongitud() - longitud) > 1e-9;
@@ -64,13 +64,14 @@ public class GestorCentros {
         return dao.buscarPorId(id);
     }
 
-    private CentroAcopio validar(int id, String nombre, String ciudad, String provincia, double latitud,
-                                 double longitud, double stock) throws ValidationException {
+    private CentroAcopio validar(int id, String nombre, String direccion, String ciudad, String provincia,
+                                 double latitud, double longitud, double stock) throws ValidationException {
         String nombreLimpio = Validador.validarNombre(nombre, "nombre");
+        String direccionLimpia = Validador.validarDireccion(direccion);
         String ciudadLimpia = Validador.validarNombre(ciudad, "ciudad");
         String provinciaValida = Validador.validarUbicacion(provincia, latitud, longitud);
         Validador.validarRango(stock, 0, Validador.MAX_STOCK_TON, "stock (toneladas)");
-        return new CentroAcopio(id, nombreLimpio, ciudadLimpia, provinciaValida, latitud, longitud, stock);
+        return new CentroAcopio(id, nombreLimpio, ciudadLimpia, provinciaValida, latitud, longitud, stock, direccionLimpia);
     }
 
     private void verificarNombreUnico(String nombre, int idPropio) throws ValidationException, PersistenciaException {

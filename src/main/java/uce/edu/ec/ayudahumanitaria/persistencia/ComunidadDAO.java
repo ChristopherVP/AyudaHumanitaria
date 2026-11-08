@@ -13,7 +13,7 @@ public class ComunidadDAO {
 
     public void insertar(Comunidad c) throws PersistenciaException {
         String sql = "INSERT INTO COMUNIDAD (NOMBRE, PROVINCIA, HABITANTES, PRIORIDAD, RECURSOS_REQUERIDOS, "
-                + "LATITUD, LONGITUD) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                + "LATITUD, LONGITUD, DIRECCION) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = ConexionBD.obtenerConexion()
                 .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, c.getNombre());
@@ -23,6 +23,7 @@ public class ComunidadDAO {
             ps.setDouble(5, c.getRecursosRequeridos());
             ps.setDouble(6, c.getLatitud());
             ps.setDouble(7, c.getLongitud());
+            ps.setString(8, c.getDireccion());
             ps.executeUpdate();
 
             try (ResultSet llaves = ps.getGeneratedKeys()) {
@@ -37,7 +38,7 @@ public class ComunidadDAO {
 
     public void actualizar(Comunidad c) throws PersistenciaException {
         String sql = "UPDATE COMUNIDAD SET NOMBRE = ?, PROVINCIA = ?, HABITANTES = ?, PRIORIDAD = ?, "
-                + "RECURSOS_REQUERIDOS = ?, LATITUD = ?, LONGITUD = ? WHERE ID = ?";
+                + "RECURSOS_REQUERIDOS = ?, LATITUD = ?, LONGITUD = ?, DIRECCION = ? WHERE ID = ?";
         try (PreparedStatement ps = ConexionBD.obtenerConexion().prepareStatement(sql)) {
             ps.setString(1, c.getNombre());
             ps.setString(2, c.getProvincia());
@@ -46,7 +47,8 @@ public class ComunidadDAO {
             ps.setDouble(5, c.getRecursosRequeridos());
             ps.setDouble(6, c.getLatitud());
             ps.setDouble(7, c.getLongitud());
-            ps.setInt(8, c.getId());
+            ps.setString(8, c.getDireccion());
+            ps.setInt(9, c.getId());
 
             int filasAfectadas = ps.executeUpdate();
             if (filasAfectadas == 0) {
@@ -91,7 +93,8 @@ public class ComunidadDAO {
                 rs.getInt("PRIORIDAD"),
                 rs.getDouble("RECURSOS_REQUERIDOS"),
                 rs.getDouble("LATITUD"),
-                rs.getDouble("LONGITUD")
+                rs.getDouble("LONGITUD"),
+                rs.getString("DIRECCION")
         );
     }
 }

@@ -13,8 +13,8 @@ public class CentroDAO {
 
     /** Inserta y devuelve el centro con su id generado. */
     public CentroAcopio insertar(CentroAcopio c) throws PersistenciaException {
-        String sql = "INSERT INTO CENTRO (NOMBRE, CIUDAD, PROVINCIA, LATITUD, LONGITUD, STOCK_TON) "
-                + "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO CENTRO (NOMBRE, CIUDAD, PROVINCIA, LATITUD, LONGITUD, STOCK_TON, DIRECCION) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = ConexionBD.obtenerConexion()
                 .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, c.getNombre());
@@ -23,6 +23,7 @@ public class CentroDAO {
             ps.setDouble(4, c.getLatitud());
             ps.setDouble(5, c.getLongitud());
             ps.setDouble(6, c.getStockToneladas());
+            ps.setString(7, c.getDireccion());
             ps.executeUpdate();
             try (ResultSet llaves = ps.getGeneratedKeys()) {
                 if (llaves.next()) {
@@ -40,7 +41,7 @@ public class CentroDAO {
 
     public void actualizar(CentroAcopio c) throws PersistenciaException {
         String sql = "UPDATE CENTRO SET NOMBRE = ?, CIUDAD = ?, PROVINCIA = ?, LATITUD = ?, LONGITUD = ?, "
-                + "STOCK_TON = ? WHERE ID = ?";
+                + "STOCK_TON = ?, DIRECCION = ? WHERE ID = ?";
         try (PreparedStatement ps = ConexionBD.obtenerConexion().prepareStatement(sql)) {
             ps.setString(1, c.getNombre());
             ps.setString(2, c.getCiudad());
@@ -48,7 +49,8 @@ public class CentroDAO {
             ps.setDouble(4, c.getLatitud());
             ps.setDouble(5, c.getLongitud());
             ps.setDouble(6, c.getStockToneladas());
-            ps.setInt(7, c.getId());
+            ps.setString(7, c.getDireccion());
+            ps.setInt(8, c.getId());
             if (ps.executeUpdate() == 0) {
                 throw new PersistenciaException("No existe un centro con ID " + c.getId() + ".");
             }
@@ -123,6 +125,6 @@ public class CentroDAO {
     private CentroAcopio mapear(ResultSet rs) throws SQLException {
         return new CentroAcopio(rs.getInt("ID"), rs.getString("NOMBRE"), rs.getString("CIUDAD"),
                 rs.getString("PROVINCIA"), rs.getDouble("LATITUD"), rs.getDouble("LONGITUD"),
-                rs.getDouble("STOCK_TON"));
+                rs.getDouble("STOCK_TON"), rs.getString("DIRECCION"));
     }
 }

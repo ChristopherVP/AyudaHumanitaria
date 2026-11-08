@@ -394,13 +394,14 @@ public class PlanDAO {
     private List<Viaje> cargarViajes(int planId) throws SQLException, PersistenciaException {
         List<Viaje> viajes = new ArrayList<>();
         try (PreparedStatement ps = ConexionBD.obtenerConexion()
-                .prepareStatement("SELECT * FROM VIAJE WHERE PLAN_ID = ? ORDER BY SALIDA, ID")) {
+                .prepareStatement("SELECT V.*, C.CIUDAD AS CENTRO_CIUDAD FROM VIAJE V LEFT JOIN CENTRO C ON C.ID = V.CENTRO_ID "
+                        + "WHERE V.PLAN_ID = ? ORDER BY V.SALIDA, V.ID")) {
             ps.setInt(1, planId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int viajeId = rs.getInt("ID");
                     CentroAcopio centro = new CentroAcopio(rs.getInt("CENTRO_ID"), rs.getString("CENTRO_NOMBRE"),
-                            "", "", rs.getDouble("CENTRO_LAT"), rs.getDouble("CENTRO_LON"), 0);
+                            ciudadDelCentro(rs), "", rs.getDouble("CENTRO_LAT"), rs.getDouble("CENTRO_LON"), 0);
                     viajes.add(new Viaje(viajeId, centro, rs.getString("VEHICULO_ETIQUETA"),
                             rs.getDouble("CAPACIDAD_TON"), rs.getDouble("CARGA_TON"), cargarParadas(viajeId),
                             rs.getDouble("DISTANCIA_KM"), rs.getTimestamp("SALIDA").toLocalDateTime(),
@@ -410,6 +411,12 @@ public class PlanDAO {
             }
         }
         return viajes;
+    }
+
+    /** Ciudad del centro (si el centro fue eliminado, se usa el nombre guardado en el viaje). */
+    private static String ciudadDelCentro(ResultSet rs) throws SQLException {
+        String ciudad = rs.getString("CENTRO_CIUDAD");
+        return ciudad == null || ciudad.isBlank() ? rs.getString("CENTRO_NOMBRE") : ciudad;
     }
 
     private List<Parada> cargarParadas(int viajeId) throws SQLException, PersistenciaException {

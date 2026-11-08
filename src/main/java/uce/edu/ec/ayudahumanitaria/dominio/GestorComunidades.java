@@ -15,16 +15,16 @@ public class GestorComunidades {
     private final ComunidadDAO dao = new ComunidadDAO();
     private final PlanDAO planDao = new PlanDAO();
 
-    public Comunidad registrar(String nombre, String provincia, int habitantes, int prioridad, double recursos,
+    public Comunidad registrar(String nombre, String direccion, String provincia, int habitantes, int prioridad, double recursos,
                                double latitud, double longitud) throws ValidationException, PersistenciaException {
-        Comunidad nueva = validar(0, nombre, provincia, habitantes, prioridad, recursos, latitud, longitud);
+        Comunidad nueva = validar(0, nombre, direccion, provincia, habitantes, prioridad, recursos, latitud, longitud);
         verificarNombreUnico(nueva.getNombre(), 0);
         dao.insertar(nueva);
         return nueva;
     }
 
     public void modificar(Comunidad c) throws ValidationException, PersistenciaException {
-        Comunidad validada = validar(c.getId(), c.getNombre(), c.getProvincia(), c.getHabitantes(),
+        Comunidad validada = validar(c.getId(), c.getNombre(), c.getDireccion(), c.getProvincia(), c.getHabitantes(),
                 c.getPrioridad(), c.getRecursosRequeridos(), c.getLatitud(), c.getLongitud());
         verificarNombreUnico(validada.getNombre(), c.getId());
 
@@ -45,15 +45,17 @@ public class GestorComunidades {
         dao.eliminar(id);
     }
 
-    private Comunidad validar(int id, String nombre, String provincia, int habitantes, int prioridad,
+    private Comunidad validar(int id, String nombre, String direccion, String provincia, int habitantes, int prioridad,
                               double recursos, double latitud, double longitud) throws ValidationException {
         String nombreLimpio = Validador.validarNombre(nombre, "nombre");
+        String direccionLimpia = Validador.validarDireccion(direccion);
         Validador.validarRango(habitantes, 1, Validador.MAX_HABITANTES, "habitantes");
         Validador.validarRangoPrioridad(prioridad);
         Validador.validarRango(recursos, Validador.MIN_RECURSOS_TON, Validador.MAX_RECURSOS_TON,
                 "recursos requeridos (toneladas)");
         String provinciaValida = Validador.validarUbicacion(provincia, latitud, longitud);
-        return new Comunidad(id, nombreLimpio, provinciaValida, habitantes, prioridad, recursos, latitud, longitud);
+        return new Comunidad(id, nombreLimpio, provinciaValida, habitantes, prioridad, recursos, latitud, longitud,
+                direccionLimpia);
     }
 
     private void verificarNombreUnico(String nombre, int idPropio) throws ValidationException, PersistenciaException {

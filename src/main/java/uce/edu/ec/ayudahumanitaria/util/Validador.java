@@ -15,6 +15,7 @@ public class Validador {
     private static final Pattern ID_VEHICULO = Pattern.compile("^[A-Z0-9][A-Z0-9-]{1,14}$");
 
     public static final int MAX_LONGITUD_NOMBRE = 100;
+    public static final int MAX_LONGITUD_DIRECCION = 150;
     public static final int MAX_HABITANTES = 2_000_000;
     public static final double MIN_RECURSOS_TON = 0.1;
     public static final double MAX_RECURSOS_TON = 5_000;
@@ -64,6 +65,24 @@ public class Validador {
                     + " solo admite letras, números, espacios y los signos . , ' ( ) / # & -");
         }
         return limpio;
+    }
+
+    /** Dirección o referencia de ubicación: obligatoria, 5 a 150 caracteres, sin símbolos raros. */
+    public static String validarDireccion(String valor) throws ValidationException {
+        if (valor == null || valor.trim().isEmpty()) {
+            throw new ValidationException("La dirección es obligatoria (calle, sector o referencia del lugar).");
+        }
+        String limpia = valor.trim().replaceAll("\\s+", " ");
+        if (limpia.length() < 5) {
+            throw new ValidationException("La dirección es muy corta: indique calle, sector o una referencia clara.");
+        }
+        if (limpia.length() > MAX_LONGITUD_DIRECCION) {
+            throw new ValidationException("La dirección no puede superar " + MAX_LONGITUD_DIRECCION + " caracteres.");
+        }
+        if (!NOMBRE_VALIDO.matcher(limpia).matches()) {
+            throw new ValidationException("La dirección solo admite letras, números, espacios y los signos . , ' ( ) / # & -");
+        }
+        return limpia;
     }
 
     /** Código/placa del vehículo en mayúsculas. Devuelve el valor normalizado. */

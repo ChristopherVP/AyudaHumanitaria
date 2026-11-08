@@ -1,6 +1,7 @@
 package uce.edu.ec.ayudahumanitaria.util;
 
 import uce.edu.ec.ayudahumanitaria.dominio.Parada;
+import uce.edu.ec.ayudahumanitaria.dominio.PlanDistribucion;
 import uce.edu.ec.ayudahumanitaria.dominio.Viaje;
 import uce.edu.ec.ayudahumanitaria.geo.CatalogoEcuador.Ciudad;
 import uce.edu.ec.ayudahumanitaria.geo.GeoEcuador;
@@ -9,7 +10,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
@@ -37,6 +40,30 @@ public final class FormatoPlan {
 
     public static String numero(double valor, int decimales) {
         return String.format(Locale.US, "%." + decimales + "f", valor);
+    }
+
+    /**
+     * Etiqueta "k de n" de cada viaje del plan (mismo orden que {@code plan.viajes()}): k-ésimo viaje
+     * del vehículo según la hora de salida, n = viajes totales de ese vehículo en el plan.
+     */
+    public static List<String> numeracionDeViajes(PlanDistribucion plan) {
+        Map<String, Integer> totales = new HashMap<>();
+        for (Viaje v : plan.viajes()) {
+            totales.merge(v.vehiculoId(), 1, Integer::sum);
+        }
+        Map<String, Integer> vistos = new HashMap<>();
+        List<String> etiquetas = new ArrayList<>();
+        List<Viaje> porSalida = new ArrayList<>(plan.viajes());
+        porSalida.sort(java.util.Comparator.comparing(Viaje::salida));
+        Map<Viaje, String> asignadas = new java.util.IdentityHashMap<>();
+        for (Viaje v : porSalida) {
+            int k = vistos.merge(v.vehiculoId(), 1, Integer::sum);
+            asignadas.put(v, k + " de " + totales.get(v.vehiculoId()));
+        }
+        for (Viaje v : plan.viajes()) {
+            etiquetas.add(asignadas.get(v));
+        }
+        return etiquetas;
     }
 
     /** Ciudades del catálogo por las que pasa aproximadamente el tramo (solo orientativo). */

@@ -6,6 +6,7 @@ import uce.edu.ec.ayudahumanitaria.dominio.Parada;
 import uce.edu.ec.ayudahumanitaria.dominio.PlanificadorDistribucion;
 import uce.edu.ec.ayudahumanitaria.dominio.Viaje;
 import uce.edu.ec.ayudahumanitaria.geo.CatalogoEcuador;
+import uce.edu.ec.ayudahumanitaria.geo.EstudioVial;
 import uce.edu.ec.ayudahumanitaria.geo.CatalogoEcuador.Carretera;
 import uce.edu.ec.ayudahumanitaria.geo.CatalogoEcuador.Ciudad;
 import uce.edu.ec.ayudahumanitaria.geo.GeoEcuador;
@@ -334,6 +335,20 @@ public class MapaEcuadorPanel extends JPanel {
 
     // ------------------------------------------------------------------ dibujo
 
+    /** Verde = mejor, naranja = regular, rojo = muchas vías en mal estado, gris = sin dato publicado. */
+    public static Color colorEstadoVial(double fraccionMala) {
+        if (Double.isNaN(fraccionMala)) {
+            return CARRETERA;
+        }
+        if (fraccionMala >= 0.70) {
+            return new Color(198, 40, 40);
+        }
+        if (fraccionMala >= 0.50) {
+            return new Color(239, 124, 0);
+        }
+        return new Color(67, 160, 71);
+    }
+
     /**
      * Dibuja el mapa completo en {@code g}.
      *
@@ -355,12 +370,19 @@ public class MapaEcuadorPanel extends JPanel {
 
         // Carreteras
         if (capas.carreteras()) {
-            g.setColor(CARRETERA);
-            g.setStroke(new BasicStroke((float) (1.6 * f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             for (Carretera c : CatalogoEcuador.CARRETERAS) {
                 Ciudad a = CatalogoEcuador.ciudad(c.desde());
                 Ciudad b = CatalogoEcuador.ciudad(c.hasta());
                 if (a != null && b != null) {
+                    // Color = estado referencial de las vías de la provincia; grosor = importancia del corredor.
+                    double malo = EstudioVial.malEstadoDelTramo(c.desde(), c.hasta());
+                    g.setColor(colorEstadoVial(malo));
+                    double grosor = switch (EstudioVial.tipoDelTramo(c.desde(), c.hasta())) {
+                        case TRONCAL -> 2.6;
+                        case PRINCIPAL -> 1.9;
+                        default -> 1.2;
+                    };
+                    g.setStroke(new BasicStroke((float) (grosor * f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     g.drawLine((int) p.x(a.longitud()), (int) p.y(a.latitud()),
                             (int) p.x(b.longitud()), (int) p.y(b.latitud()));
                 }

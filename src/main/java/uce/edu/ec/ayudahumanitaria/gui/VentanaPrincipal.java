@@ -125,7 +125,7 @@ public class VentanaPrincipal extends JFrame {
         PanelVehiculos panelVehiculos = new PanelVehiculos(gestorVehiculos, gestorCentros, this::refrescarTodo);
         PanelPlanificacion panelPlanificacion = new PanelPlanificacion(gestorPlanes, gestorCentros, gestorComunidades,
                 this::refrescarTodo);
-        PanelAlgoritmos panelAlgoritmos = new PanelAlgoritmos(gestorComunidades, gestorVehiculos, gestorCentros);
+        PanelAlgoritmos panelAlgoritmos = new PanelAlgoritmos(gestorComunidades, gestorVehiculos, gestorCentros, gestorPlanes);
         PanelReportes panelReportes = new PanelReportes(gestorComunidades, gestorVehiculos, gestorCentros, gestorPlanes,
                 panelPlanificacion::getPlanMostrado);
 

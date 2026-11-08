@@ -16,9 +16,10 @@ public final class CentroAcopio {
     private final double latitud;
     private final double longitud;
     private final double stockToneladas;
+    private final String direccion;
 
     public CentroAcopio(int id, String nombre, String ciudad, String provincia,
-                        double latitud, double longitud, double stockToneladas) {
+                        double latitud, double longitud, double stockToneladas, String direccion) {
         this.id = id;
         this.nombre = nombre;
         this.ciudad = ciudad;
@@ -26,6 +27,12 @@ public final class CentroAcopio {
         this.latitud = latitud;
         this.longitud = longitud;
         this.stockToneladas = stockToneladas;
+        this.direccion = direccion == null ? "" : direccion;
+    }
+
+    public CentroAcopio(int id, String nombre, String ciudad, String provincia,
+                        double latitud, double longitud, double stockToneladas) {
+        this(id, nombre, ciudad, provincia, latitud, longitud, stockToneladas, "");
     }
 
     public CentroAcopio(String nombre, String ciudad, String provincia,
@@ -34,11 +41,11 @@ public final class CentroAcopio {
     }
 
     public CentroAcopio conStock(double nuevoStock) {
-        return new CentroAcopio(id, nombre, ciudad, provincia, latitud, longitud, nuevoStock);
+        return new CentroAcopio(id, nombre, ciudad, provincia, latitud, longitud, nuevoStock, direccion);
     }
 
     public CentroAcopio conId(int nuevoId) {
-        return new CentroAcopio(nuevoId, nombre, ciudad, provincia, latitud, longitud, stockToneladas);
+        return new CentroAcopio(nuevoId, nombre, ciudad, provincia, latitud, longitud, stockToneladas, direccion);
     }
 
     /** Distancia estimada por carretera (km) desde este centro hasta un punto. */
@@ -68,6 +75,11 @@ public final class CentroAcopio {
 
     public double getLongitud() {
         return longitud;
+    }
+
+    /** Dirección o referencia de ubicación (obligatoria al registrar). */
+    public String getDireccion() {
+        return direccion;
     }
 
     public double getStockToneladas() {

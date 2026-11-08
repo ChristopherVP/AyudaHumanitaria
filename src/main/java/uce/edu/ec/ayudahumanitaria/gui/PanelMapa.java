@@ -5,6 +5,7 @@ import uce.edu.ec.ayudahumanitaria.dominio.GestorComunidades;
 import uce.edu.ec.ayudahumanitaria.dominio.GestorPlanes;
 import uce.edu.ec.ayudahumanitaria.dominio.PlanDistribucion;
 import uce.edu.ec.ayudahumanitaria.dominio.Viaje;
+import uce.edu.ec.ayudahumanitaria.geo.EstudioVial;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
 
 import javax.imageio.ImageIO;
@@ -14,6 +15,8 @@ import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BorderLayout;
 import java.awt.image.BufferedImage;
@@ -69,8 +72,55 @@ public class PanelMapa extends JPanel implements Refrescable {
 
         add(tarjetaControles, BorderLayout.NORTH);
         add(tarjetaMapa, BorderLayout.CENTER);
+        add(construirEstudioVial(), BorderLayout.EAST);
         aplicarCapas();
         refrescar();
+    }
+
+    /** Panel lateral con el estudio referencial del estado de las vías (color de las carreteras del mapa). */
+    private JPanel construirEstudioVial() {
+        JTextArea texto = new JTextArea(textoEstudioVial());
+        EstiloUI.estilizarAreaTexto(texto);
+        texto.setEditable(false);
+        texto.setLineWrap(true);
+        texto.setWrapStyleWord(true);
+        texto.setCaretPosition(0);
+        JScrollPane scroll = new JScrollPane(texto);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        JPanel tarjeta = EstiloUI.tarjeta("Estudio vial: estado de las calles y carreteras");
+        tarjeta.add(scroll, BorderLayout.CENTER);
+        tarjeta.setPreferredSize(new java.awt.Dimension(340, 100));
+        return tarjeta;
+    }
+
+    private static String textoEstudioVial() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("COLOR DE LAS CARRETERAS EN EL MAPA\n")
+                .append("  Rojo: 70 % o más de las vías estatales de la provincia en mal estado\n")
+                .append("  Naranja: 50 % a 69 %\n")
+                .append("  Verde: menos de 50 %\n")
+                .append("  Gris: sin dato publicado\n")
+                .append("  Grosor: troncal > principal > secundaria\n\n");
+        sb.append("PROVINCIAS CON MÁS VÍAS EN MAL ESTADO\n");
+        for (var e : EstudioVial.provinciasPorEstado()) {
+            sb.append(String.format(java.util.Locale.US, "  %-18s %3.0f %%%n", e.getKey(), e.getValue() * 100));
+        }
+        sb.append("\nCORREDORES VIALES\n");
+        for (EstudioVial.Corredor c : EstudioVial.corredores()) {
+            sb.append("• ").append(c.titulo()).append(" [").append(c.tipo().etiqueta()).append(", ")
+                    .append(c.region()).append("]\n  ").append(c.observacion()).append("\n");
+        }
+        sb.append("\nCÓMO SE USA EN LA SIMULACIÓN\n")
+                .append("Velocidad media por región (Costa 58, Sierra 48, Amazonía 42 km/h), reducida hasta 30 % según ")
+                .append("las vías en mal estado de la provincia (mínimo 25 km/h). Con ella se calculan las horas de ")
+                .append("viaje y el orden de visita por prioridad.\n\n");
+        sb.append("FUENTES\n");
+        for (String f : EstudioVial.FUENTES) {
+            sb.append("• ").append(f).append("\n");
+        }
+        sb.append("\nAVISO: es un estudio referencial con cifras publicadas; no es tránsito en tiempo real. ")
+                .append("Antes de salir, confirme cierres en el ECU 911 / MTOP.");
+        return sb.toString();
     }
 
     private MapaEcuadorPanel.Capas capasActuales() {

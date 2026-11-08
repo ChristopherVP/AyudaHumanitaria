@@ -93,7 +93,25 @@ public final class GeoEcuador {
         if (p == null) {
             return false;
         }
-        return distanciaRectaKm(p.latitud(), p.longitud(), latitud, longitud) <= p.radioKm();
+        boolean dentroDelRadio = distanciaRectaKm(p.latitud(), p.longitud(), latitud, longitud) <= p.radioKm();
+        return dentroDelRadio || provinciaDe(latitud, longitud).nombre().equals(p.nombre());
+    }
+
+    /**
+     * Provincia a la que corresponde un punto: la que tiene el centro más cercano en proporción a su radio
+     * (así las provincias grandes no pierden puntos frente a las pequeñas). Nunca devuelve {@code null}.
+     */
+    public static Provincia provinciaDe(double latitud, double longitud) {
+        Provincia mejor = CatalogoEcuador.PROVINCIAS.get(0);
+        double mejorRazon = Double.MAX_VALUE;
+        for (Provincia p : CatalogoEcuador.PROVINCIAS) {
+            double razon = distanciaRectaKm(p.latitud(), p.longitud(), latitud, longitud) / p.radioKm();
+            if (razon < mejorRazon) {
+                mejorRazon = razon;
+                mejor = p;
+            }
+        }
+        return mejor;
     }
 
     /** Ciudad del catálogo más cercana a un punto (nunca {@code null}). */

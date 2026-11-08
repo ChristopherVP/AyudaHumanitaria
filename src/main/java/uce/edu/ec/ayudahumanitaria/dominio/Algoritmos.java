@@ -481,4 +481,90 @@ public class Algoritmos {
         }
         return contador;
     }
+
+    // ------------------------------------------------------------------ Backtracking con prioridades
+
+    /** Resultado de {@link #rutaOptimaPonderada}: ruta (índices del arreglo de nombres) y su coste. */
+    public static class ResultadoRutaPonderada {
+        /** Nombres en orden de visita, empezando y terminando en {@code nombres[0]} (el centro). */
+        public String[] mejorRuta;
+        public double mejorCosto = Double.MAX_VALUE;
+        /** Suma de los costos de tramo (p. ej. horas) de la mejor ruta, incluido el regreso. */
+        public double totalTramos;
+        public int nodosExplorados;
+        public int nodosPodados;
+    }
+
+    /**
+     * Backtracking que ordena las visitas para llegar <b>antes</b> donde más importa.
+     * Minimiza {@code Σ peso_i · (costo acumulado al llegar a i) + λ · costo total}, donde λ es el peso medio:
+     * así una comunidad de prioridad alta se visita temprano, pero sin recorridos absurdamente largos.
+     * La poda es válida porque todos los términos son no negativos y crecen al avanzar.
+     *
+     * @param nombres nombres de los nodos; el índice 0 es el origen (centro)
+     * @param costos  matriz de costos de tramo (distancia u horas); no negativa
+     * @param pesos   peso de cada nodo (el del índice 0 se ignora); positivo
+     */
+    public static ResultadoRutaPonderada rutaOptimaPonderada(String[] nombres, double[][] costos, double[] pesos) {
+        if (nombres == null || costos == null || pesos == null || nombres.length < 1
+                || costos.length != nombres.length || pesos.length != nombres.length) {
+            throw new IllegalArgumentException("Nombres, costos y pesos deben tener el mismo tamaño.");
+        }
+        ResultadoRutaPonderada resultado = new ResultadoRutaPonderada();
+        if (nombres.length == 1) {
+            resultado.mejorRuta = new String[]{nombres[0], nombres[0]};
+            resultado.mejorCosto = 0;
+            return resultado;
+        }
+        double suma = 0;
+        for (int i = 1; i < pesos.length; i++) {
+            if (pesos[i] <= 0) {
+                throw new IllegalArgumentException("Los pesos deben ser positivos.");
+            }
+            suma += pesos[i];
+        }
+        double lambda = suma / (pesos.length - 1);
+        int[] orden = new int[nombres.length + 1];
+        boolean[] visitado = new boolean[nombres.length];
+        visitado[0] = true;
+        retrocederPonderado(nombres, costos, pesos, lambda, visitado, orden, 1, 0.0, 0.0, resultado);
+        return resultado;
+    }
+
+    private static void retrocederPonderado(String[] nombres, double[][] costos, double[] pesos, double lambda,
+                                            boolean[] visitado, int[] orden, int nivel, double acumulado,
+                                            double costoPonderado, ResultadoRutaPonderada resultado) {
+        resultado.nodosExplorados++;
+        if (costoPonderado + lambda * acumulado >= resultado.mejorCosto) {
+            resultado.nodosPodados++;
+            return;
+        }
+        int ultimo = orden[nivel - 1];
+        if (nivel == nombres.length) {
+            double total = acumulado + costos[ultimo][0];
+            double costoFinal = costoPonderado + lambda * total;
+            if (costoFinal < resultado.mejorCosto) {
+                resultado.mejorCosto = costoFinal;
+                resultado.totalTramos = total;
+                String[] ruta = new String[nombres.length + 1];
+                for (int k = 0; k < nombres.length; k++) {
+                    ruta[k] = nombres[orden[k]];
+                }
+                ruta[nombres.length] = nombres[0];
+                resultado.mejorRuta = ruta;
+            }
+            return;
+        }
+        for (int i = 1; i < nombres.length; i++) {
+            if (visitado[i]) {
+                continue;
+            }
+            double llegada = acumulado + costos[ultimo][i];
+            visitado[i] = true;
+            orden[nivel] = i;
+            retrocederPonderado(nombres, costos, pesos, lambda, visitado, orden, nivel + 1, llegada,
+                    costoPonderado + pesos[i] * llegada, resultado);
+            visitado[i] = false;
+        }
+    }
 }

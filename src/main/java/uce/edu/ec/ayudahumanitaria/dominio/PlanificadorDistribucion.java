@@ -3,8 +3,9 @@ package uce.edu.ec.ayudahumanitaria.dominio;
 import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos.ResultadoAsignacion;
 import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos.ResultadoDistribucion;
 import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos.ResultadoMochila;
-import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos.ResultadoRuta;
+import uce.edu.ec.ayudahumanitaria.dominio.Algoritmos.ResultadoRutaPonderada;
 import uce.edu.ec.ayudahumanitaria.dominio.PlanDistribucion.EstadisticasAlgoritmos;
+import uce.edu.ec.ayudahumanitaria.geo.EstudioVial;
 import uce.edu.ec.ayudahumanitaria.geo.GeoEcuador;
 
 import java.time.LocalDateTime;
@@ -26,7 +27,8 @@ import java.util.Map;
  *   <li><b>Programación dinámica (mochila 0/1):</b> arma los grupos de comunidades que caben en un vehículo
  *       maximizando el beneficio.</li>
  *   <li><b>Branch and Bound:</b> asigna vehículos a grupos minimizando la capacidad desperdiciada.</li>
- *   <li><b>Backtracking:</b> encuentra el orden de visita de menor distancia dentro de cada viaje.</li>
+ *   <li><b>Backtracking:</b> ordena las paradas de cada viaje para llegar antes a las comunidades de mayor
+ *       prioridad sin alargar de más el recorrido (tiempos según el estado de las vías).</li>
  * </ol>
  * La clase no usa base de datos ni interfaz: recibe los datos y devuelve un {@link PlanDistribucion}
  * inmutable, por lo que es fácil de probar.
@@ -52,6 +54,17 @@ public final class PlanificadorDistribucion {
         double beneficio() {
             return cargas.stream().mapToDouble(c -> c.comunidad().calcularBeneficio()).sum();
         }
+
+        /** Prioridad media ponderada por habitantes (equivale al beneficio por habitante). */
+        double prioridadMedia() {
+            double habitantes = cargas.stream().mapToDouble(c -> c.comunidad().getHabitantes()).sum();
+            return habitantes <= 0 ? 0 : beneficio() / habitantes;
+        }
+
+        /** Beneficio logrado por cada tonelada transportada. */
+        double beneficioPorTonelada() {
+            return toneladas <= 0 ? 0 : beneficio() / toneladas;
+        }
     }
 
     private static final class Contadores {
@@ -76,6 +89,20 @@ public final class PlanificadorDistribucion {
                                               Map<Integer, Double> yaPlanificado, Vehiculo[] vehiculos,
                                               Map<String, LocalDateTime> libreDesde, LocalDateTime salida,
                                               LocalDateTime ahora, ParametrosSimulacion parametros) {
+        return planificar(centros, comunidades, yaPlanificado, vehiculos, libreDesde, salida, ahora, parametros,
+                null);
+    }
+
+    /**
+     * Igual que la versión básica, pero solo sale lo que el usuario eligió.
+     *
+     * @param seleccion vehículos y viajes máximos por vehículo; {@code null} = toda la flota, sin límite de viajes
+     */
+    public static PlanDistribucion planificar(List<CentroAcopio> centros, Comunidad[] comunidades,
+                                              Map<Integer, Double> yaPlanificado, Vehiculo[] vehiculos,
+                                              Map<String, LocalDateTime> libreDesde, LocalDateTime salida,
+                                              LocalDateTime ahora, ParametrosSimulacion parametros,
+                                              SeleccionEnvio seleccion) {
         List<Pendiente> pendientes = new ArrayList<>();
         List<String> bitacora = new ArrayList<>();
         List<Viaje> viajes = new ArrayList<>();
@@ -111,11 +138,12 @@ public final class PlanificadorDistribucion {
             }
             List<Vehiculo> flota = new ArrayList<>();
             for (Vehiculo v : vehiculos) {
-                if (v.getCentroId() == centro.getId() && v.getCapacidadToneladas() > TOLERANCIA_TON) {
+                boolean elegido = seleccion == null || seleccion.incluye(v.getId());
+                if (elegido && v.getCentroId() == centro.getId() && v.getCapacidadToneladas() > TOLERANCIA_TON) {
                     flota.add(v);
                 }
             }
-            planificarCentro(centro, necesidades, flota, libreDesde, salida, parametros,
+            planificarCentro(centro, necesidades, flota, seleccion, libreDesde, salida, parametros,
                     viajes, pendientes, bitacora, contadores);
         }
 
@@ -146,7 +174,7 @@ public final class PlanificadorDistribucion {
     // ------------------------------------------------------------------ planificación por centro
 
     private static void planificarCentro(CentroAcopio centro, List<Comunidad> necesidades, List<Vehiculo> flota,
-                                         Map<String, LocalDateTime> libreDesde, LocalDateTime salida,
+                                         SeleccionEnvio seleccion, Map<String, LocalDateTime> libreDesde, LocalDateTime salida,
                                          ParametrosSimulacion p, List<Viaje> viajes, List<Pendiente> pendientes,
                                          List<String> bitacora, Contadores contadores) {
         Comunidad[] ordenadas = necesidades.toArray(new Comunidad[0]);
@@ -168,9 +196,11 @@ public final class PlanificadorDistribucion {
         if (flota.isEmpty()) {
             for (Comunidad c : ordenadas) {
                 pendientes.add(new Pendiente(c.getId(), c.getNombre(), centro.getNombre(),
-                        c.getRecursosRequeridos(), "El centro no tiene vehículos"));
+                        c.getRecursosRequeridos(), seleccion == null ? "El centro no tiene vehículos"
+                        : "No se eligieron vehículos de este centro"));
             }
-            bitacora.add("[" + centro.getNombre() + "] Sin vehículos registrados: no se generan viajes.");
+            bitacora.add("[" + centro.getNombre() + "] Sin vehículos "
+                    + (seleccion == null ? "registrados" : "elegidos") + ": no se generan viajes.");
             return;
         }
 
@@ -263,7 +293,10 @@ public final class PlanificadorDistribucion {
         }
 
         Grupo[] arregloGrupos = grupos.toArray(new Grupo[0]);
-        Algoritmos.quickSort(arregloGrupos, Comparator.comparingDouble(Grupo::beneficio).reversed());
+        // Orden de salida: primero los grupos con mayor beneficio por habitante (prioridad), luego los de más
+        // beneficio por tonelada transportada.
+        Algoritmos.quickSort(arregloGrupos, Comparator.comparingDouble(Grupo::prioridadMedia).reversed()
+                .thenComparing(Comparator.comparingDouble(Grupo::beneficioPorTonelada).reversed()));
         List<Grupo> cola = new ArrayList<>(Arrays.asList(arregloGrupos));
         bitacora.add(String.format(Locale.US,
                 "[%s] Mochila: %d grupo(s) de entrega formados para vehículos de hasta %.1f t.",
@@ -275,22 +308,26 @@ public final class PlanificadorDistribucion {
             LocalDateTime desde = libreDesde.getOrDefault(v.getId(), salida);
             libre.put(v.getId(), desde.isAfter(salida) ? desde : salida);
         }
-        Vehiculo[] flotaEnToneladas = new Vehiculo[flota.size()];
-        for (int i = 0; i < flota.size(); i++) {
-            flotaEnToneladas[i] = flota.get(i).enToneladas();
-        }
-
+        Map<String, Integer> usados = new HashMap<>();
         int oleada = 0;
         while (!cola.isEmpty() && oleada < MAX_OLEADAS) {
+            // Ronda: solo salen los vehículos con menos viajes hechos; nadie repite hasta que todos hayan salido.
+            List<Vehiculo> disponibles = vehiculosDeLaRonda(flota, usados, seleccion);
+            if (disponibles.isEmpty()) {
+                break;
+            }
             oleada++;
-            int n = Math.min(GRUPOS_POR_OLEADA, cola.size());
+            int n = Math.min(Math.min(GRUPOS_POR_OLEADA, cola.size()), disponibles.size());
             List<Grupo> lote = new ArrayList<>(cola.subList(0, n));
             Comunidad[] seudoComunidades = new Comunidad[n];
             for (int i = 0; i < n; i++) {
                 seudoComunidades[i] = new Comunidad(i, "G" + i, 1, 1, lote.get(i).toneladas());
             }
-            ResultadoAsignacion asignacion = Algoritmos.asignarVehiculosBranchAndBound(flotaEnToneladas,
-                    seudoComunidades);
+            Vehiculo[] enToneladas = new Vehiculo[disponibles.size()];
+            for (int i = 0; i < enToneladas.length; i++) {
+                enToneladas[i] = disponibles.get(i).enToneladas();
+            }
+            ResultadoAsignacion asignacion = Algoritmos.asignarVehiculosBranchAndBound(enToneladas, seudoComunidades);
             contadores.nodosBranchAndBound += asignacion.nodosExplorados;
             contadores.podasBranchAndBound += asignacion.nodosPodados;
 
@@ -299,7 +336,7 @@ public final class PlanificadorDistribucion {
                     for (Carga carga : g.cargas()) {
                         pendientes.add(new Pendiente(carga.comunidad().getId(), carga.comunidad().getNombre(),
                                 centro.getNombre(), carga.toneladas(),
-                                "Ningún vehículo del centro tiene capacidad suficiente"));
+                                "Ningún vehículo elegido tiene capacidad suficiente"));
                     }
                 }
                 quitarPorIdentidad(cola, lote);
@@ -313,10 +350,12 @@ public final class PlanificadorDistribucion {
                 Viaje viaje = construirViaje(centro, vehiculo, grupo, libre.get(vehiculo.getId()), p, contadores);
                 viajes.add(viaje);
                 libre.put(vehiculo.getId(), viaje.regreso().plusSeconds(Math.round(p.preparacionHoras() * 3600)));
+                int numero = usados.merge(vehiculo.getId(), 1, Integer::sum);
                 atendidos.add(grupo);
                 bitacora.add(String.format(Locale.US,
-                        "[%s] Branch and Bound: %s (%.1f t) ← %s (%.2f t). Backtracking: %s, %.1f km.",
-                        centro.getNombre(), vehiculo.getId(), vehiculo.getCapacidadToneladas(),
+                        "[%s] Branch and Bound: %s (%.1f t, viaje %d%s) ← %s (%.2f t). Backtracking por prioridad: %s, %.1f km.",
+                        centro.getNombre(), vehiculo.getId(), vehiculo.getCapacidadToneladas(), numero,
+                        seleccion == null ? "" : " de " + seleccion.viajesDe(vehiculo.getId()),
                         viaje.comunidadesTexto(), grupo.toneladas(), viaje.rutaTexto(), viaje.distanciaKm()));
             }
             quitarPorIdentidad(cola, atendidos);
@@ -325,7 +364,8 @@ public final class PlanificadorDistribucion {
         for (Grupo g : cola) {
             for (Carga carga : g.cargas()) {
                 pendientes.add(new Pendiente(carga.comunidad().getId(), carga.comunidad().getNombre(),
-                        centro.getNombre(), carga.toneladas(), "No alcanzaron las oleadas de vehículos"));
+                        centro.getNombre(), carga.toneladas(), seleccion == null ? "No alcanzaron las oleadas de vehículos"
+                        : "No alcanzaron los viajes elegidos: agregue vehículos o viajes"));
             }
         }
     }
@@ -358,7 +398,18 @@ public final class PlanificadorDistribucion {
             }
         }
 
-        ResultadoRuta ruta = Algoritmos.rutaOptima(nombres, distancias);
+        // Backtracking ponderado: costo de tramo = horas de manejo (estado de las vías); peso = prioridad.
+        double[][] horas = new double[n + 1][n + 1];
+        for (int i = 0; i <= n; i++) {
+            for (int j = 0; j <= n; j++) {
+                horas[i][j] = i == j ? 0.0 : horasDeManejo(distancias[i][j], lat[i], lon[i], lat[j], lon[j], p);
+            }
+        }
+        double[] pesos = new double[n + 1];
+        for (int i = 1; i <= n; i++) {
+            pesos[i] = Math.max(1, cargas.get(i - 1).comunidad().getPrioridad());
+        }
+        ResultadoRutaPonderada ruta = Algoritmos.rutaOptimaPonderada(nombres, horas, pesos);
         contadores.nodosBacktracking += ruta.nodosExplorados;
         contadores.podasBacktracking += ruta.nodosPodados;
 
@@ -371,7 +422,7 @@ public final class PlanificadorDistribucion {
             Carga carga = porEtiqueta.get(ruta.mejorRuta[i]);
             Comunidad c = carga.comunidad();
             double km = GeoEcuador.distanciaCarreteraKm(latPrevia, lonPrevia, c.getLatitud(), c.getLongitud());
-            reloj.conducir(km / p.velocidadPromedioKmH());
+            reloj.conducir(horasDeManejo(km, latPrevia, lonPrevia, c.getLatitud(), c.getLongitud(), p));
             LocalDateTime llegada = reloj.ahora();
             reloj.esperarMinutos(p.servicioBaseMinutos() + p.servicioMinutosPorTon() * carga.toneladas());
             kmAcumulados += km;
@@ -382,7 +433,7 @@ public final class PlanificadorDistribucion {
         }
         double kmRegreso = GeoEcuador.distanciaCarreteraKm(latPrevia, lonPrevia, centro.getLatitud(),
                 centro.getLongitud());
-        reloj.conducir(kmRegreso / p.velocidadPromedioKmH());
+        reloj.conducir(horasDeManejo(kmRegreso, latPrevia, lonPrevia, centro.getLatitud(), centro.getLongitud(), p));
         kmAcumulados += kmRegreso;
 
         return new Viaje(0, centro, vehiculo.getId(), vehiculo.getCapacidadToneladas(), grupo.toneladas(),
@@ -429,6 +480,39 @@ public final class PlanificadorDistribucion {
     }
 
     // ------------------------------------------------------------------ utilidades
+
+    /**
+     * Horas de manejo de un tramo según el estudio vial (región y estado de las vías). La velocidad promedio
+     * configurada actúa como escala: con el valor de referencia (50 km/h) se usan las velocidades del estudio.
+     */
+    private static double horasDeManejo(double km, double lat1, double lon1, double lat2, double lon2,
+                                        ParametrosSimulacion p) {
+        double escala = EstudioVial.VELOCIDAD_REFERENCIA / p.velocidadPromedioKmH();
+        return EstudioVial.horasDeManejo(km, lat1, lon1, lat2, lon2) * escala;
+    }
+
+    /** Vehículos que salen en la siguiente ronda: con viajes disponibles y el menor número de viajes hechos. */
+    private static List<Vehiculo> vehiculosDeLaRonda(List<Vehiculo> flota, Map<String, Integer> usados,
+                                                     SeleccionEnvio seleccion) {
+        int minimo = Integer.MAX_VALUE;
+        for (Vehiculo v : flota) {
+            if (tieneViajesLibres(v, usados, seleccion)) {
+                minimo = Math.min(minimo, usados.getOrDefault(v.getId(), 0));
+            }
+        }
+        List<Vehiculo> ronda = new ArrayList<>();
+        for (Vehiculo v : flota) {
+            if (tieneViajesLibres(v, usados, seleccion) && usados.getOrDefault(v.getId(), 0) == minimo) {
+                ronda.add(v);
+            }
+        }
+        return ronda;
+    }
+
+    private static boolean tieneViajesLibres(Vehiculo v, Map<String, Integer> usados, SeleccionEnvio seleccion) {
+        int hechos = usados.getOrDefault(v.getId(), 0);
+        return seleccion == null ? hechos < MAX_OLEADAS : hechos < seleccion.viajesDe(v.getId());
+    }
 
     /** Copia que viaja a los algoritmos: el nombre es el id (único) y los recursos son los indicados. */
     private static Comunidad clave(Comunidad c, double recursos) {
