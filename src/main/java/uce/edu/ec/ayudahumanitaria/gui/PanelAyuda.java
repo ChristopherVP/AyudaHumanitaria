@@ -22,7 +22,7 @@ public class PanelAyuda extends JPanel {
             <a href='#centros'>Centros</a> ·
             <a href='#comunidades'>Comunidades</a> ·
             <a href='#vehiculos'>Vehículos</a> ·
-            <a href='#plan'>Planificación</a> ·
+            <a href='#plan'>Logística</a> ·
             <a href='#algoritmos'>Algoritmos</a> ·
             <a href='#mapa'>Mapa</a> ·
             <a href='#reportes'>Reportes</a> ·
@@ -36,7 +36,7 @@ public class PanelAyuda extends JPanel {
                   recursos requeridos y ubicación: al elegir el punto en el mapa, la <b>ciudad y la provincia se
                   completan solas</b>.</li>
               <li><b>Vehículos:</b> cada vehículo pertenece a un centro y tiene capacidad en kg.</li>
-              <li><b>Planificación:</b> <b>primero elija qué vehículos envía cada centro y cuántos viajes hace cada uno</b>
+              <li><b>Logística:</b> <b>primero elija qué vehículos envía cada centro y cuántos viajes hace cada uno</b>
                   (o pulse <i>Recomendar vehículos</i>), luego fecha y hora de salida y <i>Simular</i>. Sin vehículos
                   elegidos no se puede planificar. <i>Simulación rápida</i> hace todo con la sugerencia, sin guardar.
                   Si está conforme, pulse <i>Confirmar plan</i>.</li>
@@ -61,7 +61,7 @@ public class PanelAyuda extends JPanel {
             (<i>asignado</i> y comunidad) se actualiza solo según el reloj: mientras tenga un viaje planificado o en
             ruta aparece asignado.</p>
 
-            <a name='plan'></a><h2 style='color:#195a9e;'>5. Planificación con fechas reales</h2>
+            <a name='plan'></a><h2 style='color:#195a9e;'>5. Logística: planificación con fechas reales</h2>
             <p>Al simular, el programa calcula para cada viaje la hora de salida, de llegada a cada comunidad y de
             regreso. Supuestos (editables en el código, <code>ParametrosSimulacion</code>):</p>
             <ul>
@@ -87,7 +87,7 @@ public class PanelAyuda extends JPanel {
             </ol>
             <p>Si un vehículo tiene 2 o más viajes, todos salen primero y repiten en rondas: el 2.º viaje sale cuando el
             vehículo regresó y se preparó, y atiende lo siguiente por prioridad (la columna <i>Viaje</i> muestra «2 de 3»).</p>
-            <p>La pestaña <i>Algoritmos</i> muestra qué necesita cada comunidad, cuánto hay disponible, limita los campos a
+            <p>La parte inferior de la pestaña <i>Logística</i> muestra qué necesita cada comunidad, cuánto hay disponible, limita los campos a
             valores con sentido y permite probar cada uno por separado con los datos reales (no modifica la base).</p>
 
             <a name='mapa'></a><h2 style='color:#195a9e;'>7. Cómo leer el mapa</h2>

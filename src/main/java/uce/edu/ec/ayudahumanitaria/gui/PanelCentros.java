@@ -31,7 +31,7 @@ public class PanelCentros extends JPanel implements Refrescable {
     private final Runnable alCambiar;
 
     private final JTextField campoNombre = EstiloUI.campoTexto(16);
-    private final JTextField campoDireccion = EstiloUI.campoTexto(28);
+    private final JTextField campoDireccion = EstiloUI.campoTexto(14);
     private final javax.swing.JLabel etiquetaUbicacion = EstiloUI.etiqueta("Elija el punto en el mapa");
     private final JTextField campoLatitud = EstiloUI.campoTexto(8);
     private final JTextField campoLongitud = EstiloUI.campoTexto(8);
@@ -77,14 +77,15 @@ public class PanelCentros extends JPanel implements Refrescable {
         JPanel tarjetaMapa = EstiloUI.tarjeta("Ubicación");
         tarjetaMapa.add(mapa, BorderLayout.CENTER);
 
-        javax.swing.JSplitPane centro = new javax.swing.JSplitPane(javax.swing.JSplitPane.HORIZONTAL_SPLIT,
-                tarjetaTabla, tarjetaMapa);
-        centro.setResizeWeight(0.62);
-        centro.setBorder(null);
-        centro.setOpaque(false);
+        tarjetaTabla.setPreferredSize(new java.awt.Dimension(900, 300));
+        JPanel arriba = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+        arriba.setOpaque(false);
+        arriba.add(construirFormulario());
+        arriba.add(tarjetaMapa);
+        arriba.setPreferredSize(new java.awt.Dimension(900, 330));
 
-        add(construirFormulario(), BorderLayout.NORTH);
-        add(centro, BorderLayout.CENTER);
+        add(arriba, BorderLayout.NORTH);
+        add(tarjetaTabla, BorderLayout.CENTER);
 
         btnRegistrar.addActionListener(e -> registrar());
         btnModificar.addActionListener(e -> modificar());
@@ -112,28 +113,35 @@ public class PanelCentros extends JPanel implements Refrescable {
         agregar(campos, g, 2, 0, "Dirección:", campoDireccion);
         agregar(campos, g, 0, 1, "Latitud:", campoLatitud);
         agregar(campos, g, 2, 1, "Longitud:", campoLongitud);
-        g.gridx = 4;
-        g.gridy = 1;
-        campos.add(btnMapa, g);
         agregar(campos, g, 0, 2, "Stock inicial (t):", campoStock);
         agregar(campos, g, 2, 2, "Ciudad · Provincia:", etiquetaUbicacion);
 
         JPanel acciones = EstiloUI.fila();
+        acciones.add(btnMapa);
         acciones.add(btnRegistrar);
         acciones.add(btnModificar);
         acciones.add(btnEliminar);
         acciones.add(btnNuevo);
-        acciones.add(EstiloUI.etiqueta("   Ingresar (t):"));
-        acciones.add(campoReabastecer);
-        acciones.add(btnReabastecer);
+        JPanel reabastecer = EstiloUI.fila();
+        reabastecer.add(EstiloUI.etiqueta("Ingresar mercadería al stock (t):"));
+        reabastecer.add(campoReabastecer);
+        reabastecer.add(btnReabastecer);
 
         JPanel alineado = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
         alineado.setOpaque(false);
         alineado.add(campos);
         JPanel contenido = new JPanel(new BorderLayout(0, 6));
         contenido.setOpaque(false);
-        contenido.add(alineado, BorderLayout.NORTH);
-        contenido.add(acciones, BorderLayout.SOUTH);
+        JPanel pila = new JPanel();
+        pila.setOpaque(false);
+        pila.setLayout(new javax.swing.BoxLayout(pila, javax.swing.BoxLayout.Y_AXIS));
+        alineado.setAlignmentX(0f);
+        acciones.setAlignmentX(0f);
+        reabastecer.setAlignmentX(0f);
+        pila.add(alineado);
+        pila.add(acciones);
+        pila.add(reabastecer);
+        contenido.add(pila, BorderLayout.NORTH);
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;
     }

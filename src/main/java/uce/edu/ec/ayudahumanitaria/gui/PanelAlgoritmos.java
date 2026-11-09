@@ -21,7 +21,6 @@ import uce.edu.ec.ayudahumanitaria.geo.GeoEcuador;
 import uce.edu.ec.ayudahumanitaria.persistencia.PersistenciaException;
 
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -31,17 +30,14 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
-import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
-import javax.swing.Scrollable;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Rectangle;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -69,6 +65,13 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
     private final JComboBox<Object> comboAlcance = new JComboBox<>();
     private boolean actualizandoCombo;
     private boolean limitesIniciados;
+    private java.util.function.Consumer<uce.edu.ec.ayudahumanitaria.dominio.SeleccionEnvio> alAplicar;
+
+    /** Permite que la recomendación se aplique directamente a la elección de vehículos de Planificación. */
+    public void setAlAplicarRecomendacion(
+            java.util.function.Consumer<uce.edu.ec.ayudahumanitaria.dominio.SeleccionEnvio> accion) {
+        this.alAplicar = accion;
+    }
 
     private final JSpinner spinnerSuministros = new JSpinner(new SpinnerNumberModel(1.0, 0.1, 1.0, 0.5));
     private final JSpinner spinnerCapacidad = new JSpinner(new SpinnerNumberModel(1, 1, 1, 1));
@@ -99,12 +102,14 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
 
         add(construirAlcance(), BorderLayout.NORTH);
 
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, construirColumnaAlgoritmos(),
-                construirColumnaResultados());
-        division.setResizeWeight(0.42);
-        division.setBorder(null);
-        division.setOpaque(false);
-        add(division, BorderLayout.CENTER);
+        JPanel cuerpo = new JPanel(new BorderLayout(0, 12));
+        cuerpo.setOpaque(false);
+        JPanel filaDatos = construirColumnaResultados();
+        filaDatos.setPreferredSize(new Dimension(900, 330));
+        JPanel cuadricula = construirCuadriculaAlgoritmos();
+        cuerpo.add(filaDatos, BorderLayout.NORTH);
+        cuerpo.add(cuadricula, BorderLayout.CENTER);
+        add(cuerpo, BorderLayout.CENTER);
 
         comboAlcance.addActionListener(e -> {
             if (!actualizandoCombo) {
@@ -112,7 +117,6 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
             }
         });
         refrescar();
-        javax.swing.SwingUtilities.invokeLater(() -> scrollColumna.getVerticalScrollBar().setValue(0));
         mostrar("Elija el alcance y pulse el botón de cualquier algoritmo.\n\n"
                 + "Arriba a la derecha ve qué necesita cada comunidad y cuánto hay disponible para enviar;"
                 + " aquí aparece el detalle de cada cálculo.");
@@ -131,12 +135,11 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
         return tarjeta;
     }
 
-    private JScrollPane scrollColumna;
-
-    private JScrollPane construirColumnaAlgoritmos() {
-        PanelVertical columna = new PanelVertical();
+    /** Cuadrícula de 3 columnas × 2 filas con una tarjeta por algoritmo (sin barras internas). */
+    private JPanel construirCuadriculaAlgoritmos() {
+        JPanel columna = new JPanel(new java.awt.GridLayout(2, 3, 10, 0));
         columna.setOpaque(false);
-        columna.setLayout(new BoxLayout(columna, BoxLayout.Y_AXIS));
+        columna.setPreferredSize(new Dimension(900, 520));
 
         listaVehiculos.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         listaVehiculos.setVisibleRowCount(4);
@@ -190,16 +193,10 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
                         + "en Planificación usted decide.",
                 null, "Recomendar envío", this::ejecutarRecomendacion));
 
-        JScrollPane scroll = new JScrollPane(columna);
-        scroll.setBorder(BorderFactory.createEmptyBorder());
-        scroll.getVerticalScrollBar().setUnitIncrement(18);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scrollColumna = scroll;
-        return scroll;
+        return columna;
     }
 
-    private JSplitPane construirColumnaResultados() {
+    private JPanel construirColumnaResultados() {
         JTable tabla = new JTable(modeloSituacion);
         EstiloUI.estilizarTabla(tabla);
         tabla.setAutoCreateRowSorter(true);
@@ -219,11 +216,11 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
         JPanel tarjetaResultados = EstiloUI.tarjeta("Resultado del algoritmo");
         tarjetaResultados.add(new JScrollPane(areaResultados), BorderLayout.CENTER);
 
-        JSplitPane division = new JSplitPane(JSplitPane.VERTICAL_SPLIT, tarjetaSituacion, tarjetaResultados);
-        division.setResizeWeight(0.38);
-        division.setBorder(null);
-        division.setOpaque(false);
-        return division;
+        JPanel fila = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+        fila.setOpaque(false);
+        fila.add(tarjetaSituacion);
+        fila.add(tarjetaResultados);
+        return fila;
     }
 
     /** Tarjeta vertical: título + etiqueta del algoritmo, explicación, controles opcionales y botón. */
@@ -276,7 +273,7 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
 
         JPanel envoltorio = new JPanel(new BorderLayout());
         envoltorio.setOpaque(false);
-        envoltorio.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 4));
+        envoltorio.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         envoltorio.add(tarjeta, BorderLayout.CENTER);
         envoltorio.setAlignmentX(LEFT_ALIGNMENT);
         return envoltorio;
@@ -289,34 +286,6 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
         campo.setPreferredSize(new Dimension(90, campo.getPreferredSize().height + 4));
         fila.add(campo);
         return fila;
-    }
-
-    /** Panel que se ajusta al ancho de la ventana (para que el texto se parta en líneas en vez de ensancharse). */
-    private static final class PanelVertical extends JPanel implements Scrollable {
-        @Override
-        public Dimension getPreferredScrollableViewportSize() {
-            return getPreferredSize();
-        }
-
-        @Override
-        public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
-            return 18;
-        }
-
-        @Override
-        public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) {
-            return Math.max(visible.height - 40, 18);
-        }
-
-        @Override
-        public boolean getScrollableTracksViewportWidth() {
-            return true;
-        }
-
-        @Override
-        public boolean getScrollableTracksViewportHeight() {
-            return false;
-        }
     }
 
     // ------------------------------------------------------------------ datos del alcance
@@ -729,7 +698,12 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
             for (String linea : RecomendadorEnvio.recomendar(resumenes).explicacion()) {
                 sb.append("  • ").append(linea).append("\n");
             }
-            sb.append("\nEn la pestaña Planificación puede aceptar, cambiar vehículos y viajes, y simular.");
+            var recomendacion = RecomendadorEnvio.recomendar(resumenes);
+            if (alAplicar != null && !recomendacion.seleccion().estaVacia()) {
+                alAplicar.accept(recomendacion.seleccion());
+                sb.append("\nLa recomendación ya quedó marcada en «Vehículos a enviar» (arriba): puede cambiarla "
+                        + "y pulsar Simular.");
+            }
             mostrar(sb.toString());
         } catch (PersistenciaException ex) {
             mostrar(ex.getMessage());

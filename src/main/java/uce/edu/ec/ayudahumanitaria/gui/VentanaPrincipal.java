@@ -133,16 +133,16 @@ public class VentanaPrincipal extends JFrame {
         refrescables.add(panelCentros);
         refrescables.add(panelComunidades);
         refrescables.add(panelVehiculos);
+        refrescables.add(panelPlanificacion);
         refrescables.add(panelAlgoritmos);
-        // Planificación no se refresca desde fuera al confirmar: se encarga ella misma.
+        PanelLogistica panelLogistica = new PanelLogistica(panelPlanificacion, panelAlgoritmos);
 
-        pestanas.addTab("Mapa", panelMapa);
-        pestanas.addTab("Centros", panelCentros);
-        pestanas.addTab("Comunidades", panelComunidades);
-        pestanas.addTab("Vehículos", panelVehiculos);
-        pestanas.addTab("Planificación", panelPlanificacion);
-        pestanas.addTab("Algoritmos", panelAlgoritmos);
-        pestanas.addTab("Reportes", panelReportes);
+        pestanas.addTab("Mapa", Pagina.de(panelMapa, 700));
+        pestanas.addTab("Centros", Pagina.de(panelCentros, 780));
+        pestanas.addTab("Comunidades", Pagina.de(panelComunidades, 860));
+        pestanas.addTab("Vehículos", Pagina.de(panelVehiculos, 720));
+        pestanas.addTab("Logística", Pagina.de(panelLogistica, 1950));
+        pestanas.addTab("Reportes", Pagina.de(panelReportes, 620));
         pestanas.addTab("Ayuda", new PanelAyuda());
         return pestanas;
     }

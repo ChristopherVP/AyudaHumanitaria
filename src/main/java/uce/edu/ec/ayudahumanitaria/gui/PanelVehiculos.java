@@ -62,17 +62,12 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         setBackground(EstiloUI.FONDO_APP);
         setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
-        JPanel panelSuperior = new JPanel();
-        panelSuperior.setLayout(new BoxLayout(panelSuperior, BoxLayout.Y_AXIS));
+        JPanel panelSuperior = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         panelSuperior.setOpaque(false);
 
         JPanel tarjetaFormulario = construirTarjetaFormulario();
         JPanel tarjetaBusqueda = construirTarjetaBusqueda();
-        tarjetaFormulario.setAlignmentX(Component.LEFT_ALIGNMENT);
-        tarjetaBusqueda.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         panelSuperior.add(tarjetaFormulario);
-        panelSuperior.add(Box.createVerticalStrut(12));
         panelSuperior.add(tarjetaBusqueda);
 
         EstiloUI.estilizarTabla(tabla);
@@ -80,6 +75,10 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         scrollTabla.setBorder(BorderFactory.createLineBorder(EstiloUI.BORDE_SUAVE, 1));
         JPanel tarjetaTabla = EstiloUI.tarjeta("Vehículos registrados");
         tarjetaTabla.add(scrollTabla, BorderLayout.CENTER);
+        tarjetaTabla.add(EstiloUI.textoSecundario("«Asignado» significa que el vehículo tiene un viaje de un plan "
+                + "CONFIRMADO (pestaña Logística); cambia solo según el reloj: planificado/en ruta = asignado, "
+                + "completado = libre."), BorderLayout.NORTH);
+        tarjetaTabla.setPreferredSize(new java.awt.Dimension(900, 420));
 
         add(panelSuperior, BorderLayout.NORTH);
         add(tarjetaTabla, BorderLayout.CENTER);
@@ -121,13 +120,18 @@ public class PanelVehiculos extends JPanel implements Refrescable {
     private JPanel construirTarjetaFormulario() {
         JPanel tarjeta = EstiloUI.tarjeta("Datos del vehículo");
 
-        JPanel campos = EstiloUI.fila();
-        campos.add(EstiloUI.etiqueta("ID:"));
-        campos.add(campoId);
-        campos.add(EstiloUI.etiqueta("Capacidad (kg):"));
-        campos.add(campoCapacidad);
-        campos.add(EstiloUI.etiqueta("Centro de acopio:"));
-        campos.add(comboCentro);
+        JPanel fila1 = EstiloUI.fila();
+        fila1.add(EstiloUI.etiqueta("ID:"));
+        fila1.add(campoId);
+        fila1.add(EstiloUI.etiqueta("Capacidad (kg):"));
+        fila1.add(campoCapacidad);
+        JPanel fila2 = EstiloUI.fila();
+        fila2.add(EstiloUI.etiqueta("Centro de acopio:"));
+        fila2.add(comboCentro);
+        JPanel campos = new JPanel(new java.awt.GridLayout(0, 1, 0, 0));
+        campos.setOpaque(false);
+        campos.add(fila1);
+        campos.add(fila2);
 
         JPanel acciones = EstiloUI.fila();
         acciones.add(btnRegistrar);
@@ -137,8 +141,11 @@ public class PanelVehiculos extends JPanel implements Refrescable {
 
         JPanel contenido = new JPanel(new BorderLayout(0, 4));
         contenido.setOpaque(false);
-        contenido.add(campos, BorderLayout.NORTH);
-        contenido.add(acciones, BorderLayout.SOUTH);
+        JPanel pila = new JPanel(new java.awt.GridLayout(0, 1, 0, 0));
+        pila.setOpaque(false);
+        pila.add(campos);
+        pila.add(acciones);
+        contenido.add(pila, BorderLayout.NORTH);
 
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;

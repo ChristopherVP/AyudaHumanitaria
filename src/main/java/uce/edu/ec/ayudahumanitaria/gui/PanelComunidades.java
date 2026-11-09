@@ -35,7 +35,7 @@ public class PanelComunidades extends JPanel implements Refrescable {
     private final Runnable alCambiar;
 
     private final JTextField campoNombre = EstiloUI.campoTexto(16);
-    private final JTextField campoDireccion = EstiloUI.campoTexto(28);
+    private final JTextField campoDireccion = EstiloUI.campoTexto(14);
     private final javax.swing.JLabel etiquetaUbicacion = EstiloUI.etiqueta("Elija el punto en el mapa");
     private final JTextField campoHabitantes = EstiloUI.campoTexto(8);
     private final JTextField campoPrioridad = EstiloUI.campoTexto(4);
@@ -86,10 +86,10 @@ public class PanelComunidades extends JPanel implements Refrescable {
         setBackground(EstiloUI.FONDO_APP);
         setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
-        JPanel superior = new JPanel(new BorderLayout(0, 12));
-        superior.setOpaque(false);
-        superior.add(construirFormulario(), BorderLayout.NORTH);
-        superior.add(construirBusqueda(), BorderLayout.CENTER);
+        JPanel formularioYBusqueda = new JPanel(new BorderLayout(0, 12));
+        formularioYBusqueda.setOpaque(false);
+        formularioYBusqueda.add(construirFormulario(), BorderLayout.NORTH);
+        formularioYBusqueda.add(construirBusqueda(), BorderLayout.CENTER);
 
         EstiloUI.estilizarTabla(tabla);
         tabla.setAutoCreateRowSorter(true);
@@ -102,17 +102,15 @@ public class PanelComunidades extends JPanel implements Refrescable {
         JPanel tarjetaMapa = EstiloUI.tarjeta("Mapa (la comunidad elegida se resalta)");
         tarjetaMapa.add(mapa, BorderLayout.CENTER);
 
-        JPanel izquierda = new JPanel(new BorderLayout(0, 12));
-        izquierda.setOpaque(false);
-        izquierda.add(superior, BorderLayout.NORTH);
-        izquierda.add(tarjetaTabla, BorderLayout.CENTER);
+        JPanel arriba = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+        arriba.setOpaque(false);
+        arriba.add(formularioYBusqueda);
+        arriba.add(tarjetaMapa);
+        arriba.setPreferredSize(new java.awt.Dimension(900, 400));
+        tarjetaTabla.setPreferredSize(new java.awt.Dimension(900, 340));
 
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, izquierda, tarjetaMapa);
-        division.setResizeWeight(0.68);
-        division.setBorder(null);
-        division.setOpaque(false);
-
-        add(division, BorderLayout.CENTER);
+        add(arriba, BorderLayout.NORTH);
+        add(tarjetaTabla, BorderLayout.CENTER);
 
         btnRegistrar.addActionListener(e -> registrar());
         btnModificar.addActionListener(e -> modificar());
@@ -161,8 +159,11 @@ public class PanelComunidades extends JPanel implements Refrescable {
         alineado.add(campos);
         JPanel contenido = new JPanel(new BorderLayout(0, 8));
         contenido.setOpaque(false);
-        contenido.add(alineado, BorderLayout.NORTH);
-        contenido.add(acciones, BorderLayout.SOUTH);
+        JPanel pila = new JPanel(new java.awt.GridLayout(0, 1, 0, 6));
+        pila.setOpaque(false);
+        pila.add(alineado);
+        pila.add(acciones);
+        contenido.add(pila, BorderLayout.NORTH);
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;
     }

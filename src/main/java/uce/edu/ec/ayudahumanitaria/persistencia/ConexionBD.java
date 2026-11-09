@@ -66,9 +66,14 @@ public class ConexionBD {
                     + "RECURSOS_REQUERIDOS DOUBLE NOT NULL)");
             st.execute("ALTER TABLE CENTRO ADD COLUMN IF NOT EXISTS DIRECCION VARCHAR(150) DEFAULT '' NOT NULL");
             st.execute("ALTER TABLE COMUNIDAD ADD COLUMN IF NOT EXISTS DIRECCION VARCHAR(150) DEFAULT '' NOT NULL");
+            // Registros anteriores a la dirección obligatoria: se les pone una referencia editable.
+            st.execute("UPDATE CENTRO SET DIRECCION = 'Centro de acopio de ' || CIUDAD || ', ' || PROVINCIA"
+                    + " || ' (referencia)' WHERE TRIM(DIRECCION) = ''");
             st.execute("ALTER TABLE COMUNIDAD ADD COLUMN IF NOT EXISTS PROVINCIA VARCHAR(40) DEFAULT '' NOT NULL");
             st.execute("ALTER TABLE COMUNIDAD ADD COLUMN IF NOT EXISTS LATITUD DOUBLE DEFAULT 0 NOT NULL");
             st.execute("ALTER TABLE COMUNIDAD ADD COLUMN IF NOT EXISTS LONGITUD DOUBLE DEFAULT 0 NOT NULL");
+            st.execute("UPDATE COMUNIDAD SET DIRECCION = 'Cabecera de ' || NOMBRE || ', ' || PROVINCIA"
+                    + " || ' (referencia)' WHERE TRIM(DIRECCION) = ''");
 
             st.execute("CREATE TABLE IF NOT EXISTS VEHICULO ("
                     + "ID VARCHAR(20) PRIMARY KEY, "

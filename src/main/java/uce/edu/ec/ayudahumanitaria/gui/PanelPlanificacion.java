@@ -147,13 +147,8 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         norte.setOpaque(false);
         norte.add(construirEleccionVehiculos(), BorderLayout.CENTER);
         norte.add(construirCabecera(), BorderLayout.SOUTH);
-        JSplitPane vertical = new JSplitPane(JSplitPane.VERTICAL_SPLIT, norte, construirCentro());
-        vertical.setResizeWeight(0.0);
-        vertical.setBorder(null);
-        vertical.setOpaque(false);
-        vertical.setContinuousLayout(true);
-        add(vertical, BorderLayout.CENTER);
-        javax.swing.SwingUtilities.invokeLater(() -> vertical.setDividerLocation(norte.getPreferredSize().height + 6));
+        add(norte, BorderLayout.NORTH);
+        add(construirCentro(), BorderLayout.CENTER);
 
         btnSimular.addActionListener(e -> simular());
         btnConfirmar.addActionListener(e -> confirmar());
@@ -227,7 +222,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollFlota, scrollSituacion);
         division.setResizeWeight(0.32);
         division.setBorder(null);
-        division.setPreferredSize(new java.awt.Dimension(900, 170));
+        division.setPreferredSize(new java.awt.Dimension(900, 230));
 
         JPanel botones = EstiloUI.fila();
         botones.add(btnTodos);
@@ -244,7 +239,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         return tarjeta;
     }
 
-    private JSplitPane construirCentro() {
+    private JPanel construirCentro() {
         EstiloUI.estilizarTabla(tablaViajes);
         Tablas.anchos(tablaViajes, 30, 100, 80, 55, 70, 55, 55, 115, 115, 85, 420);
         Tablas.anchos(tablaHistorial, 45, 115, 115, 115, 55, 80, 60, 90);
@@ -268,18 +263,23 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         JPanel izquierda = new JPanel(new BorderLayout(0, 10));
         izquierda.setOpaque(false);
         tarjetaViajes.add(new JScrollPane(tablaViajes), BorderLayout.CENTER);
-        tarjetaViajes.setPreferredSize(new java.awt.Dimension(560, 250));
-        izquierda.add(tarjetaViajes, BorderLayout.NORTH);
-        izquierda.add(pestanas, BorderLayout.CENTER);
+        izquierda.add(tarjetaViajes, BorderLayout.CENTER);
 
         JPanel tarjetaMapa = EstiloUI.tarjeta("Ruta del viaje seleccionado");
         tarjetaMapa.add(mapa, BorderLayout.CENTER);
 
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, izquierda, tarjetaMapa);
-        division.setResizeWeight(0.55);
-        division.setBorder(null);
-        division.setOpaque(false);
-        return division;
+        JPanel fila = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
+        fila.setOpaque(false);
+        fila.add(izquierda);
+        fila.add(tarjetaMapa);
+        fila.setPreferredSize(new java.awt.Dimension(900, 400));
+        pestanas.setPreferredSize(new java.awt.Dimension(900, 300));
+
+        JPanel contenedor = new JPanel(new BorderLayout(0, 12));
+        contenedor.setOpaque(false);
+        contenedor.add(fila, BorderLayout.NORTH);
+        contenedor.add(pestanas, BorderLayout.CENTER);
+        return contenedor;
     }
 
     // ------------------------------------------------------------------ acciones
@@ -338,6 +338,11 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
     }
 
     // ------------------------------------------------------------------ elección de vehículos
+
+    /** Marca en la tabla la elección recibida (p. ej. desde la recomendación de la sección de algoritmos). */
+    public void aplicarSeleccion(SeleccionEnvio seleccion) {
+        aplicarEleccion(seleccion);
+    }
 
     private void marcarTodos(boolean marcar) {
         eleccion.clear();
