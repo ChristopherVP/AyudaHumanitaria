@@ -23,7 +23,8 @@ public final class RecomendadorEnvio {
 
     /** Situación de un centro: lo que necesitan sus comunidades, lo que tiene y lo que puede mover su flota. */
     public record ResumenCentro(CentroAcopio centro, List<Comunidad> comunidades, double demandaToneladas,
-                                double stockToneladas, double enviableToneladas, List<Vehiculo> flota) {
+                                double stockToneladas, double enviableToneladas, List<Vehiculo> flota,
+                                List<Vehiculo> ocupados) {
         public double capacidadFlotaToneladas() {
             return flota.stream().mapToDouble(Vehiculo::getCapacidadToneladas).sum();
         }
@@ -48,6 +49,16 @@ public final class RecomendadorEnvio {
     /** Un resumen por centro, con las necesidades pendientes (ya descontado lo planificado) de sus comunidades. */
     public static List<ResumenCentro> resumenPorCentro(List<CentroAcopio> centros, Comunidad[] comunidades,
                                                        Map<Integer, Double> yaPlanificado, Vehiculo[] vehiculos) {
+        return resumenPorCentro(centros, comunidades, yaPlanificado, vehiculos, Map.of());
+    }
+
+    /**
+     * Igual que la versión básica pero separando los vehículos que ya están en un viaje vigente
+     * ({@code enViaje}: id → hora de regreso): esos no forman parte de la flota disponible.
+     */
+    public static List<ResumenCentro> resumenPorCentro(List<CentroAcopio> centros, Comunidad[] comunidades,
+                                                       Map<Integer, Double> yaPlanificado, Vehiculo[] vehiculos,
+                                                       Map<String, ?> enViaje) {
         Map<Integer, List<Comunidad>> porCentro = new LinkedHashMap<>();
         for (CentroAcopio c : centros) {
             porCentro.put(c.getId(), new ArrayList<>());
@@ -69,13 +80,14 @@ public final class RecomendadorEnvio {
                     .thenComparing(Comparator.comparingDouble(Comunidad::calcularBeneficio).reversed()));
             double demanda = necesitadas.stream().mapToDouble(Comunidad::getRecursosRequeridos).sum();
             List<Vehiculo> flota = new ArrayList<>();
+            List<Vehiculo> ocupados = new ArrayList<>();
             for (Vehiculo v : vehiculos) {
                 if (v.getCentroId() == centro.getId() && v.getCapacidadToneladas() > TOLERANCIA_TON) {
-                    flota.add(v);
+                    (enViaje.containsKey(v.getId()) ? ocupados : flota).add(v);
                 }
             }
             resumenes.add(new ResumenCentro(centro, List.copyOf(necesitadas), demanda, centro.getStockToneladas(),
-                    Math.min(demanda, centro.getStockToneladas()), List.copyOf(flota)));
+                    Math.min(demanda, centro.getStockToneladas()), List.copyOf(flota), List.copyOf(ocupados)));
         }
         return resumenes;
     }

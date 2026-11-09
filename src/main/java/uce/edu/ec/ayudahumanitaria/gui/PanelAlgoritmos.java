@@ -190,7 +190,7 @@ public class PanelAlgoritmos extends JPanel implements Refrescable {
         columna.add(tarjetaAlgoritmo("6. Recomendación de envío", "Greedy + datos reales",
                 "Resume por centro lo que se puede enviar (necesidad limitada por el stock) y sugiere cuántos "
                         + "vehículos y viajes hacen falta, empezando por los de mayor capacidad. Es una sugerencia: "
-                        + "en la sección de arriba usted decide.",
+                        + "en las pestañas Automático / Manual de más abajo usted decide.",
                 null, "Recomendar envío", this::ejecutarRecomendacion));
 
         return columna;

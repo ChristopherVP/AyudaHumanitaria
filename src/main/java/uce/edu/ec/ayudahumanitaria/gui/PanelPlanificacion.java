@@ -52,34 +52,49 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
     private final GestorComunidades gestorComunidades;
     private final Runnable alCambiar;
 
-    private final JSpinner selectorSalida;
-    private final JLabel resumen = EstiloUI.textoSecundario("Elija la fecha y hora de salida y pulse «Simular».");
-    private final JButton btnSimular = EstiloUI.botonPrimario("Simular");
+    private final JSpinner selectorAuto = crearSelectorSalida();
+    private final JSpinner selectorManual = crearSelectorSalida();
+    private final JLabel resumen = EstiloUI.textoSecundario("Calcule un plan en la pestaña Automático o Manual.");
+    private final JButton btnCalcularAuto = EstiloUI.botonPrimario("Calcular plan automático");
+    private final JButton btnRapida = EstiloUI.botonAccion("Simulación rápida (salida en 30 min)");
+    private final JButton btnCalcularManual = EstiloUI.botonPrimario("Calcular plan con mis vehículos");
+    private final JButton btnRecomendar = EstiloUI.botonAccion("Sugerir con algoritmos (Greedy)");
+    private final JButton btnTodos = EstiloUI.botonNeutro("Marcar todos los libres");
+    private final JButton btnNinguno = EstiloUI.botonNeutro("Quitar todos");
     private final JButton btnConfirmar = EstiloUI.botonAccion("Confirmar plan");
     private final JButton btnCancelarPlan = EstiloUI.botonPeligro("Cancelar plan seleccionado");
     private final JButton btnActualizar = EstiloUI.botonNeutro("Actualizar estados");
-    private final JButton btnRecomendar = EstiloUI.botonAccion("Recomendar vehículos");
-    private final JButton btnRapida = EstiloUI.botonAccion("Simulación rápida");
-    private final JButton btnTodos = EstiloUI.botonNeutro("Marcar todos");
-    private final JButton btnNinguno = EstiloUI.botonNeutro("Quitar todos");
+    private final JComboBox<Object> comboCentrosAuto = crearComboCentros();
+    private final JComboBox<Object> comboCentrosManual = crearComboCentros();
+    private final JLabel enViajeAuto = EstiloUI.textoSecundario(" ");
+    private final JLabel enViajeManual = EstiloUI.textoSecundario(" ");
+    /** Vehículos con un viaje confirmado vigente → hora de regreso. Bloqueados para cualquier proceso. */
+    private Map<String, LocalDateTime> enViaje = Map.of();
+
+    private final DefaultTableModel modeloAuto = new DefaultTableModel(
+            new Object[]{"Vehículo", "Centro", "Capacidad (t)", "Viajes", "Por qué lo eligieron los algoritmos"}, 0) {
+        @Override
+        public boolean isCellEditable(int fila, int columna) {
+            return false;
+        }
+    };
+    private final JTable tablaAuto = new JTable(modeloAuto);
+    private JPanel seccionAutomatico;
+    private JPanel seccionManual;
+    private JPanel seccionResultados;
 
     /** Elección del usuario (id de vehículo → viajes). Sobrevive a los refrescos automáticos. */
     private final Map<String, Integer> eleccion = new LinkedHashMap<>();
     private List<ResumenCentro> resumenes = List.of();
     private boolean cargandoFlota;
-    private boolean ajustandoModo;
     /** Motivo de cada vehículo sugerido por los algoritmos (vacío para los elegidos a mano). */
     private Map<String, String> motivos = Map.of();
-    private final JComboBox<String> comboModo = new JComboBox<>(new String[]{
-            "Automático (los algoritmos eligen)",
-            "Manual (yo elijo)"});
-    private final JComboBox<Object> comboCentros = new JComboBox<>();
-
     private final DefaultTableModel modeloFlota = new DefaultTableModel(
-            new Object[]{"Enviar", "Vehículo", "Centro", "Capacidad (t)", "Viajes", "Por qué (algoritmo)"}, 0) {
+            new Object[]{"Enviar", "Vehículo", "Centro", "Capacidad (t)", "Viajes", "Estado / por qué"}, 0) {
         @Override
         public boolean isCellEditable(int fila, int columna) {
-            return columna == 0 || columna == 4;
+            // Un vehículo en viaje confirmado no se puede elegir (ni cambiar sus viajes).
+            return (columna == 0 || columna == 4) && !enViaje.containsKey(String.valueOf(getValueAt(fila, 1)));
         }
 
         @Override
@@ -140,28 +155,17 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         this.gestorComunidades = gestorComunidades;
         this.alCambiar = alCambiar;
 
-        setLayout(new BorderLayout(12, 12));
-        setBackground(EstiloUI.FONDO_APP);
-        setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+        // Este panel no se muestra por sí solo: PanelLogistica ubica sus tres secciones.
+        seccionAutomatico = construirAutomatico();
+        seccionManual = construirManual();
+        seccionResultados = construirResultados();
 
-        Date inicial = Date.from(LocalDateTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0)
-                .atZone(ZoneId.systemDefault()).toInstant());
-        selectorSalida = new JSpinner(new SpinnerDateModel(inicial, null, null, java.util.Calendar.HOUR_OF_DAY));
-        selectorSalida.setEditor(new JSpinner.DateEditor(selectorSalida, "dd/MM/yyyy HH:mm"));
-        selectorSalida.setFont(EstiloUI.FUENTE_BASE);
-
-        JPanel norte = new JPanel(new BorderLayout(0, 10));
-        norte.setOpaque(false);
-        norte.add(construirEleccionVehiculos(), BorderLayout.CENTER);
-        norte.add(construirCabecera(), BorderLayout.SOUTH);
-        add(norte, BorderLayout.NORTH);
-        add(construirCentro(), BorderLayout.CENTER);
-
-        btnSimular.addActionListener(e -> simular());
+        btnCalcularAuto.addActionListener(e -> calcularAutomatico());
+        btnCalcularManual.addActionListener(e -> calcularManual());
         btnConfirmar.addActionListener(e -> confirmar());
         btnCancelarPlan.addActionListener(e -> cancelarPlan());
         btnActualizar.addActionListener(e -> refrescar());
-        btnRecomendar.addActionListener(e -> recomendar());
+        btnRecomendar.addActionListener(e -> sugerirParaManual());
         btnRapida.addActionListener(e -> simulacionRapida());
         btnTodos.addActionListener(e -> marcarTodos(true));
         btnNinguno.addActionListener(e -> marcarTodos(false));
@@ -169,7 +173,6 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
             if (!cargandoFlota) {
                 leerEleccionDeLaTabla();
                 pintarSituacion();
-                pasarAManual();
             }
         });
         tablaViajes.getSelectionModel().addListSelectionListener(e -> {
@@ -187,14 +190,31 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         refrescar();
     }
 
-    private JPanel construirCabecera() {
-        JPanel tarjeta = EstiloUI.tarjeta("2) Fecha de salida y simulación");
-        JPanel filaModo = EstiloUI.fila();
-        filaModo.add(EstiloUI.etiqueta("Modo:"));
-        filaModo.add(comboModo);
-        filaModo.add(EstiloUI.etiqueta("Centros que participan:"));
-        comboCentros.setPreferredSize(new java.awt.Dimension(340, comboCentros.getPreferredSize().height));
-        comboCentros.setRenderer(new javax.swing.DefaultListCellRenderer() {
+    public JPanel seccionAutomatico() {
+        return seccionAutomatico;
+    }
+
+    public JPanel seccionManual() {
+        return seccionManual;
+    }
+
+    public JPanel seccionResultados() {
+        return seccionResultados;
+    }
+
+    private static JSpinner crearSelectorSalida() {
+        Date inicial = Date.from(LocalDateTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0)
+                .atZone(ZoneId.systemDefault()).toInstant());
+        JSpinner selector = new JSpinner(new SpinnerDateModel(inicial, null, null, java.util.Calendar.HOUR_OF_DAY));
+        selector.setEditor(new JSpinner.DateEditor(selector, "dd/MM/yyyy HH:mm"));
+        selector.setFont(EstiloUI.FUENTE_BASE);
+        return selector;
+    }
+
+    private static JComboBox<Object> crearComboCentros() {
+        JComboBox<Object> combo = new JComboBox<>();
+        combo.setPreferredSize(new java.awt.Dimension(360, combo.getPreferredSize().height));
+        combo.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override
             public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> lista, Object valor,
                                                                    int indice, boolean sel, boolean foco) {
@@ -203,28 +223,76 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
                 return super.getListCellRendererComponent(lista, texto, indice, sel, foco);
             }
         });
-        filaModo.add(comboCentros);
-        JPanel fila = EstiloUI.fila();
-        fila.add(EstiloUI.etiqueta("Salida (fecha y hora):"));
-        fila.add(selectorSalida);
-        fila.add(btnSimular);
-        fila.add(btnConfirmar);
-        fila.add(btnCancelarPlan);
-        fila.add(btnActualizar);
-        JPanel contenido = new JPanel(new BorderLayout(0, 4));
+        return combo;
+    }
+
+    /** Cuadro de texto con los pasos numerados, para que el usuario sepa qué hacer en cada pestaña. */
+    private static JTextArea pasos(String texto) {
+        JTextArea area = new JTextArea(texto);
+        area.setEditable(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setOpaque(false);
+        area.setFont(EstiloUI.FUENTE_BASE);
+        area.setForeground(EstiloUI.TEXTO_SECUNDARIO);
+        area.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
+        return area;
+    }
+
+    private JPanel construirAutomatico() {
+        JPanel tarjeta = EstiloUI.tarjeta("Modo automático: los algoritmos deciden vehículos, centros, cargas y rutas");
+        JTextArea guia = pasos("""
+                PASO A PASO
+                1. Revise arriba la situación (qué necesita cada comunidad y cuánto stock hay) y, si quiere, pruebe cada algoritmo en las tarjetas.
+                2. Elija qué centros participan. «Todos» = cada comunidad la atiende su centro más cercano (Greedy por distancia).
+                3. Elija la fecha y hora de salida (no puede estar en el pasado).
+                4. Pulse «Calcular plan automático». El sistema ejecuta, en este orden:
+                   · Greedy: reparte el stock de cada centro a sus comunidades por prioridad.
+                   · Mochila 0/1: arma cargas de comunidades que caben en un vehículo con el mayor beneficio.
+                   · Branch and Bound: asigna cada carga al vehículo libre que menos capacidad desperdicia.
+                   · Backtracking: ordena las paradas para llegar antes a las comunidades de mayor prioridad.
+                5. Abajo verá qué vehículos usó y por qué. Si un vehículo hace 2 o más viajes, regresa al centro, se prepara y sale otra vez.
+                6. Revise los viajes, el itinerario y el mapa en «Resultado» (al final de esta página) y pulse «Confirmar plan». Desde ese momento los vehículos quedan EN VIAJE y no se pueden usar en el modo manual ni en otro plan hasta que regresen.""");
+
+        JPanel controles = EstiloUI.fila();
+        controles.add(EstiloUI.etiqueta("Centros que participan:"));
+        controles.add(comboCentrosAuto);
+        controles.add(EstiloUI.etiqueta("Salida:"));
+        controles.add(selectorAuto);
+        controles.add(btnCalcularAuto);
+        controles.add(btnRapida);
+
+        EstiloUI.estilizarTabla(tablaAuto);
+        Tablas.anchos(tablaAuto, 90, 120, 100, 70, 640);
+        JScrollPane scroll = new JScrollPane(tablaAuto);
+        scroll.setPreferredSize(new java.awt.Dimension(900, 130));
+
+        JPanel norte = new JPanel(new BorderLayout(0, 4));
+        norte.setOpaque(false);
+        norte.add(guia, BorderLayout.NORTH);
+        norte.add(controles, BorderLayout.CENTER);
+        norte.add(enViajeAuto, BorderLayout.SOUTH);
+        JPanel contenido = new JPanel(new BorderLayout(0, 8));
         contenido.setOpaque(false);
-        JPanel controles = new JPanel(new java.awt.GridLayout(0, 1, 0, 0));
-        controles.setOpaque(false);
-        controles.add(filaModo);
-        controles.add(fila);
-        contenido.add(controles, BorderLayout.NORTH);
-        contenido.add(resumen, BorderLayout.SOUTH);
+        contenido.add(norte, BorderLayout.NORTH);
+        contenido.add(scroll, BorderLayout.CENTER);
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;
     }
 
-    private JPanel construirEleccionVehiculos() {
-        JPanel tarjeta = EstiloUI.tarjeta("1) Elija qué vehículos envía cada centro y cuántos viajes hace cada uno");
+    private JPanel construirManual() {
+        JPanel tarjeta = EstiloUI.tarjeta("Modo manual: usted elige qué vehículos salen y cuántos viajes hacen");
+        JTextArea guia = pasos("""
+                PASO A PASO
+                1. En la tabla, marque «Enviar» en los vehículos que quiere mandar. Los vehículos EN VIAJE aparecen bloqueados: ya fueron asignados en un plan confirmado.
+                2. Elija cuántos viajes hará cada uno (1 a 5). Con 2 o más, el vehículo regresa al centro y sale de nuevo.
+                3. (Opcional) Pulse «Sugerir con algoritmos» para que Greedy marque los vehículos más grandes que cubren la carga; luego puede cambiarlos.
+                4. Compare en la segunda tabla lo que necesita cada centro con la capacidad que eligió: avisa si falta o si no hay vehículos.
+                5. Elija la fecha y hora de salida y pulse «Calcular plan con mis vehículos». Solo se usan los que marcó:
+                   · Greedy reparte el stock por prioridad, Mochila 0/1 arma las cargas,
+                   · Branch and Bound asigna cada carga a uno de SUS vehículos y Backtracking ordena las paradas por prioridad.
+                6. Revise los viajes, el itinerario y el mapa en «Resultado» (al final) y pulse «Confirmar plan». Los vehículos pasan a EN VIAJE y no podrán usarse en el modo automático hasta que regresen.""");
+
         EstiloUI.estilizarTabla(tablaFlota);
         EstiloUI.estilizarTabla(tablaSituacion);
         Tablas.anchos(tablaFlota, 55, 90, 110, 90, 60, 520);
@@ -237,6 +305,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         casilla.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         tablaFlota.getColumnModel().getColumn(0).setCellRenderer((t, valor, sel, foco, fila, col) -> {
             casilla.setSelected(Boolean.TRUE.equals(valor));
+            casilla.setEnabled(modeloFlota.isCellEditable(fila, 0));
             casilla.setBackground(sel ? t.getSelectionBackground() : (fila % 2 == 0 ? java.awt.Color.WHITE
                     : EstiloUI.FILA_ALTERNA));
             return casilla;
@@ -244,27 +313,55 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         tablaFlota.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(new javax.swing.JCheckBox()));
         tablaFlota.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(viajes));
 
-        JScrollPane scrollFlota = new JScrollPane(tablaFlota);
-        JScrollPane scrollSituacion = new JScrollPane(tablaSituacion);
-        JPanel division = new JPanel(new java.awt.GridLayout(2, 1, 0, 8));
-        division.setOpaque(false);
-        division.add(scrollFlota);
-        division.add(scrollSituacion);
-        division.setPreferredSize(new java.awt.Dimension(900, 400));
+        JPanel tablas = new JPanel(new java.awt.GridLayout(2, 1, 0, 8));
+        tablas.setOpaque(false);
+        tablas.add(new JScrollPane(tablaFlota));
+        tablas.add(new JScrollPane(tablaSituacion));
+        tablas.setPreferredSize(new java.awt.Dimension(900, 400));
 
-        JPanel botones = EstiloUI.fila();
-        botones.add(btnTodos);
-        botones.add(btnNinguno);
-        botones.add(btnRecomendar);
-        botones.add(btnRapida);
-        botones.add(EstiloUI.textoSecundario("  Un vehículo con 2 o más viajes vuelve al centro, recarga y sale de nuevo."));
+        JPanel acciones = EstiloUI.fila();
+        acciones.add(btnTodos);
+        acciones.add(btnNinguno);
+        acciones.add(EstiloUI.etiqueta("  Sugerir solo para:"));
+        acciones.add(comboCentrosManual);
+        acciones.add(btnRecomendar);
+        JPanel calculo = EstiloUI.fila();
+        calculo.add(EstiloUI.etiqueta("Salida:"));
+        calculo.add(selectorManual);
+        calculo.add(btnCalcularManual);
 
-        JPanel contenido = new JPanel(new BorderLayout(0, 6));
+        JPanel norte = new JPanel(new BorderLayout(0, 4));
+        norte.setOpaque(false);
+        norte.add(guia, BorderLayout.NORTH);
+        norte.add(acciones, BorderLayout.CENTER);
+        norte.add(enViajeManual, BorderLayout.SOUTH);
+        JPanel contenido = new JPanel(new BorderLayout(0, 8));
         contenido.setOpaque(false);
-        contenido.add(botones, BorderLayout.NORTH);
-        contenido.add(division, BorderLayout.CENTER);
+        contenido.add(norte, BorderLayout.NORTH);
+        contenido.add(tablas, BorderLayout.CENTER);
+        contenido.add(calculo, BorderLayout.SOUTH);
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;
+    }
+
+    /** Resultado común de ambos modos: confirmar, viajes, itinerario y mapa. */
+    private JPanel construirResultados() {
+        JPanel tarjeta = EstiloUI.tarjeta("Resultado del plan (aquí se revisa y se confirma)");
+        JPanel fila = EstiloUI.fila();
+        fila.add(btnConfirmar);
+        fila.add(btnCancelarPlan);
+        fila.add(btnActualizar);
+        JPanel contenido = new JPanel(new BorderLayout(0, 4));
+        contenido.setOpaque(false);
+        contenido.add(fila, BorderLayout.NORTH);
+        contenido.add(resumen, BorderLayout.SOUTH);
+        tarjeta.add(contenido, BorderLayout.CENTER);
+
+        JPanel todo = new JPanel(new BorderLayout(0, 12));
+        todo.setOpaque(false);
+        todo.add(tarjeta, BorderLayout.NORTH);
+        todo.add(construirCentro(), BorderLayout.CENTER);
+        return todo;
     }
 
     private JPanel construirCentro() {
@@ -309,90 +406,119 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
     // ------------------------------------------------------------------ acciones
 
-    private void simular() {
-        try {
-            Date fecha = (Date) selectorSalida.getValue();
-            LocalDateTime salida = LocalDateTime.ofInstant(fecha.toInstant(), ZoneId.systemDefault());
-            PlanDistribucion plan;
-            if (esAutomatico()) {
-                GestorPlanes.ResultadoRapido r = gestorPlanes.simularAutomatico(salida, centroElegido());
-                aplicarEleccion(r.recomendacion().seleccion(), r.recomendacion().motivos());
-                plan = r.plan();
-            } else {
-                leerEleccionDeLaTabla();
-                plan = gestorPlanes.simular(salida, new SeleccionEnvio(eleccion));
-            }
-            mostrarPlan(plan);
-            tablaHistorial.clearSelection();
-            btnConfirmar.setEnabled(!plan.estaVacio());
-            btnCancelarPlan.setEnabled(false);
-            if (plan.estaVacio()) {
-                JOptionPane.showMessageDialog(this, "No hay nada que distribuir con los datos actuales "
-                        + "(revise stock de los centros, vehículos libres y necesidades pendientes).");
-            }
-        } catch (ValidationException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
-        } catch (PersistenciaException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
+    private static LocalDateTime salidaDe(JSpinner selector) {
+        return LocalDateTime.ofInstant(((Date) selector.getValue()).toInstant(), ZoneId.systemDefault());
+    }
+
+    private void mostrarSimulacion(PlanDistribucion plan) {
+        mostrarPlan(plan);
+        tablaHistorial.clearSelection();
+        btnConfirmar.setEnabled(!plan.estaVacio());
+        btnCancelarPlan.setEnabled(false);
+        if (plan.estaVacio()) {
+            JOptionPane.showMessageDialog(this, "No hay nada que distribuir con los datos actuales "
+                    + "(revise stock de los centros, vehículos libres y necesidades pendientes).");
         }
     }
 
-    private void recomendar() {
+    private void avisarValidacion(ValidationException ex) {
+        JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
+    }
+
+    private void avisarBD(PersistenciaException ex) {
+        JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
+    }
+
+    /** Modo automático: los algoritmos eligen vehículos y centros. */
+    private void calcularAutomatico() {
         try {
-            RecomendadorEnvio.Recomendacion r = gestorPlanes.recomendar(centroElegido());
+            GestorPlanes.ResultadoRapido r = gestorPlanes.simularAutomatico(salidaDe(selectorAuto),
+                    centroElegido(comboCentrosAuto));
+            llenarTablaAuto(r.recomendacion());
+            mostrarSimulacion(r.plan());
+            anteponerABitacora("MODO AUTOMÁTICO", r.recomendacion().explicacion());
+            resumen.setText(resumen.getText() + "  → revise y pulse «Confirmar plan».");
+        } catch (ValidationException ex) {
+            avisarValidacion(ex);
+        } catch (PersistenciaException ex) {
+            avisarBD(ex);
+        }
+    }
+
+    /** Modo manual: solo se usan los vehículos y viajes que marcó el usuario. */
+    private void calcularManual() {
+        try {
+            leerEleccionDeLaTabla();
+            PlanDistribucion plan = gestorPlanes.simular(salidaDe(selectorManual), new SeleccionEnvio(eleccion));
+            mostrarSimulacion(plan);
+            anteponerABitacora("MODO MANUAL", List.of(eleccion.size() + " vehículo(s) elegido(s), "
+                    + new SeleccionEnvio(eleccion).totalViajes() + " viaje(s) como máximo."));
+            resumen.setText(resumen.getText() + "  → revise y pulse «Confirmar plan».");
+            llenarFlota();
+        } catch (ValidationException ex) {
+            avisarValidacion(ex);
+        } catch (PersistenciaException ex) {
+            avisarBD(ex);
+        }
+    }
+
+    /** Sugerencia Greedy para el modo manual: solo marca la tabla; el usuario decide. */
+    private void sugerirParaManual() {
+        try {
+            RecomendadorEnvio.Recomendacion r = gestorPlanes.recomendar(centroElegido(comboCentrosManual));
             aplicarEleccion(r.seleccion(), r.motivos());
             JOptionPane.showMessageDialog(this, String.join("\n\n", r.explicacion())
-                            + "\n\nEs solo una sugerencia: puede cambiar vehículos y viajes antes de simular.",
-                    "Recomendación (Greedy)", JOptionPane.INFORMATION_MESSAGE);
+                            + "\n\nEs solo una sugerencia: puede cambiar vehículos y viajes antes de calcular.",
+                    "Sugerencia (Greedy)", JOptionPane.INFORMATION_MESSAGE);
         } catch (PersistenciaException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
+            avisarBD(ex);
         }
     }
 
-    /** Recomienda vehículos y simula de una vez; no guarda nada hasta que el usuario confirme. */
+    /** Automático con salida en 30 minutos y todos los centros; no guarda nada hasta confirmar. */
     private void simulacionRapida() {
         try {
             GestorPlanes.ResultadoRapido r = gestorPlanes.simulacionRapida();
-            aplicarEleccion(r.recomendacion().seleccion(), r.recomendacion().motivos());
-            selectorSalida.setValue(Date.from(r.plan().salidaProgramada().atZone(ZoneId.systemDefault()).toInstant()));
-            mostrarPlan(r.plan());
-            tablaHistorial.clearSelection();
-            btnConfirmar.setEnabled(!r.plan().estaVacio());
-            btnCancelarPlan.setEnabled(false);
-            areaBitacora.setText("SIMULACIÓN RÁPIDA (salida en 30 min, vehículos sugeridos por Greedy)\n"
-                    + String.join("\n", r.recomendacion().explicacion()) + "\n\n" + areaBitacora.getText());
-            areaBitacora.setCaretPosition(0);
+            selectorAuto.setValue(Date.from(r.plan().salidaProgramada().atZone(ZoneId.systemDefault()).toInstant()));
+            llenarTablaAuto(r.recomendacion());
+            mostrarSimulacion(r.plan());
+            anteponerABitacora("SIMULACIÓN RÁPIDA (salida en 30 min)", r.recomendacion().explicacion());
         } catch (ValidationException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
+            avisarValidacion(ex);
         } catch (PersistenciaException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
+            avisarBD(ex);
+        }
+    }
+
+    private void anteponerABitacora(String titulo, List<String> lineas) {
+        areaBitacora.setText(titulo + "\n" + String.join("\n", lineas) + "\n\n" + areaBitacora.getText());
+        areaBitacora.setCaretPosition(0);
+    }
+
+    private void llenarTablaAuto(RecomendadorEnvio.Recomendacion r) {
+        modeloAuto.setRowCount(0);
+        for (ResumenCentro rc : resumenes) {
+            for (Vehiculo v : rc.flota()) {
+                int viajes = r.seleccion().viajesDe(v.getId());
+                if (viajes > 0) {
+                    modeloAuto.addRow(new Object[]{v.getId(), rc.centro().getCiudad(),
+                            FormatoPlan.numero(v.getCapacidadToneladas(), 1), viajes,
+                            r.motivos().getOrDefault(v.getId(), "")});
+                }
+            }
         }
     }
 
     // ------------------------------------------------------------------ elección de vehículos
 
-    /** Marca en la tabla la elección recibida (p. ej. desde la recomendación de la sección de algoritmos). */
+    /** Marca en la tabla manual la elección recibida (p. ej. desde la recomendación de las tarjetas de algoritmos). */
     public void aplicarSeleccion(SeleccionEnvio seleccion) {
         aplicarEleccion(seleccion, Map.of());
     }
 
-    private boolean esAutomatico() {
-        return comboModo.getSelectedIndex() == 0;
-    }
-
-    /** Id del centro elegido, o {@code null} si participan todos (cada comunidad va al centro más cercano). */
-    private Integer centroElegido() {
-        return comboCentros.getSelectedItem() instanceof ResumenCentro r ? r.centro().getId() : null;
-    }
-
-    /** Si el usuario toca la tabla, deja de ser automático: sus cambios mandan. */
-    private void pasarAManual() {
-        if (!ajustandoModo && esAutomatico()) {
-            ajustandoModo = true;
-            comboModo.setSelectedIndex(1);
-            motivos = Map.of();
-            ajustandoModo = false;
-        }
+    /** Id del centro elegido en el combo, o {@code null} si participan todos. */
+    private static Integer centroElegido(JComboBox<Object> combo) {
+        return combo.getSelectedItem() instanceof ResumenCentro r ? r.centro().getId() : null;
     }
 
     private void marcarTodos(boolean marcar) {
@@ -407,7 +533,6 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         motivos = Map.of();
         llenarFlota();
         pintarSituacion();
-        pasarAManual();
     }
 
     private void aplicarEleccion(SeleccionEnvio seleccion, Map<String, String> nuevosMotivos) {
@@ -428,19 +553,29 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         }
     }
 
-    private void actualizarComboCentros() {
-        Integer anterior = centroElegido();
-        ajustandoModo = true;
-        comboCentros.removeAllItems();
-        comboCentros.addItem("Todos (cada comunidad va al centro más cercano)");
-        for (ResumenCentro r : resumenes) {
-            comboCentros.addItem(r);
+    private void actualizarCombosCentros() {
+        for (JComboBox<Object> combo : List.of(comboCentrosAuto, comboCentrosManual)) {
+            Integer anterior = centroElegido(combo);
+            combo.removeAllItems();
+            combo.addItem("Todos (cada comunidad va al centro más cercano)");
+            for (ResumenCentro r : resumenes) {
+                combo.addItem(r);
+            }
+            if (anterior != null) {
+                resumenes.stream().filter(r -> r.centro().getId() == anterior).findFirst()
+                        .ifPresent(combo::setSelectedItem);
+            }
         }
-        if (anterior != null) {
-            resumenes.stream().filter(r -> r.centro().getId() == anterior).findFirst()
-                    .ifPresent(comboCentros::setSelectedItem);
+    }
+
+    private String textoEnViaje() {
+        if (enViaje.isEmpty()) {
+            return "Todos los vehículos están libres.";
         }
-        ajustandoModo = false;
+        StringBuilder sb = new StringBuilder("En viaje (bloqueados hasta regresar): ");
+        enViaje.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> sb.append(e.getKey())
+                .append(" (regresa ").append(FormatoPlan.fechaHora(e.getValue())).append(")  "));
+        return sb.toString();
     }
 
     private void llenarFlota() {
@@ -454,7 +589,12 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
                 int viajes = eleccion.getOrDefault(v.getId(), 0);
                 modeloFlota.addRow(new Object[]{viajes > 0, v.getId(), r.centro().getCiudad(),
                         FormatoPlan.numero(v.getCapacidadToneladas(), 1), Math.max(1, viajes),
-                        viajes > 0 ? motivos.getOrDefault(v.getId(), "Elegido por usted") : ""});
+                        viajes > 0 ? motivos.getOrDefault(v.getId(), "Elegido por usted") : "Libre"});
+            }
+            for (Vehiculo v : r.ocupados()) {
+                modeloFlota.addRow(new Object[]{false, v.getId(), r.centro().getCiudad(),
+                        FormatoPlan.numero(v.getCapacidadToneladas(), 1), 1,
+                        "EN VIAJE hasta " + FormatoPlan.fechaHora(enViaje.get(v.getId())) + " (bloqueado)"});
             }
         }
         cargandoFlota = false;
@@ -500,6 +640,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         return falta > 0.05 ? String.format(Locale.US, "Faltan %.1f t: agregue vehículos o viajes", falta)
                 : "Cubre la carga";
     }
+
 
     private void confirmar() {
         if (planMostrado == null || planMostrado.id() != 0) {
@@ -550,8 +691,12 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
     public void refrescar() {
         try {
             historial = new ArrayList<>(gestorPlanes.listarPlanes());
+            enViaje = gestorPlanes.vehiculosEnViaje();
             resumenes = gestorPlanes.resumenPorCentro();
-            actualizarComboCentros();
+            eleccion.keySet().removeIf(enViaje::containsKey);
+            actualizarCombosCentros();
+            enViajeAuto.setText(textoEnViaje());
+            enViajeManual.setText(textoEnViaje());
             eleccion.keySet().removeIf(id -> resumenes.stream().noneMatch(
                     r -> r.flota().stream().anyMatch(v -> v.getId().equals(id))));
             llenarFlota();

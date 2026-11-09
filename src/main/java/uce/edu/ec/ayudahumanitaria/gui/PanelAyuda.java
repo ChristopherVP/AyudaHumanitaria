@@ -36,10 +36,12 @@ public class PanelAyuda extends JPanel {
                   recursos requeridos y ubicación: al elegir el punto en el mapa, la <b>ciudad y la provincia se
                   completan solas</b>.</li>
               <li><b>Vehículos:</b> cada vehículo pertenece a un centro y tiene capacidad en kg.</li>
-              <li><b>Logística:</b> <b>primero elija qué vehículos envía cada centro y cuántos viajes hace cada uno</b>
-                  (o pulse <i>Recomendar vehículos</i>), luego fecha y hora de salida y <i>Simular</i>. Sin vehículos
-                  elegidos no se puede planificar. <i>Simulación rápida</i> hace todo con la sugerencia, sin guardar.
-                  Si está conforme, pulse <i>Confirmar plan</i>.</li>
+              <li><b>Logística</b> (de arriba abajo): <b>1)</b> tarjetas de algoritmos para entender la situación;
+                  <b>2)</b> dos sub-pestañas con guía paso a paso: <i>Automático</i> (los algoritmos eligen vehículos,
+                  centros y rutas; solo elija centros y hora de salida) o <i>Manual</i> (usted marca vehículos y
+                  viajes, con sugerencia opcional de Greedy); <b>3)</b> resultado con viajes, itinerario y mapa, donde
+                  se pulsa <i>Confirmar plan</i>. Los vehículos de un plan confirmado quedan <b>EN VIAJE</b> y no se
+                  pueden usar en el otro modo hasta que regresen.</li>
               <li><b>Reportes:</b> exporte el plan a Excel o PDF (con mapas) para sus registros.</li>
             </ol>
 

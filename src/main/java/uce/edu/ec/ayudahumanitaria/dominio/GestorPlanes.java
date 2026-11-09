@@ -52,6 +52,14 @@ public class GestorPlanes {
         if (seleccion == null || seleccion.estaVacia()) {
             throw new ValidationException("Elija al menos un vehículo (con 1 o más viajes) para planificar.");
         }
+        Map<String, LocalDateTime> enViaje = vehiculosEnViaje();
+        for (String id : seleccion.viajesPorVehiculo().keySet()) {
+            if (enViaje.containsKey(id)) {
+                throw new ValidationException("El vehículo " + id + " ya está en un viaje confirmado hasta el "
+                        + enViaje.get(id).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                        + " y no puede usarse en otro proceso.");
+            }
+        }
         Map<String, Vehiculo> existentes = new HashMap<>();
         for (Vehiculo v : vehiculoDao.listarTodos()) {
             existentes.put(v.getId(), v);
@@ -86,7 +94,16 @@ public class GestorPlanes {
         sincronizar();
         return RecomendadorEnvio.resumenPorCentro(centroDao.listarTodos(),
                 comunidadDao.listarTodas().toArray(new Comunidad[0]), planDao.toneladasPlanificadas(),
-                vehiculoDao.listarTodos().toArray(new Vehiculo[0]));
+                vehiculoDao.listarTodos().toArray(new Vehiculo[0]), planDao.regresoDeViajesVigentes());
+    }
+
+    /**
+     * Vehículos que están en un plan confirmado (planificado o en ruta) → hora en que regresan.
+     * Mientras estén en viaje no pueden usarse en ningún otro proceso, automático ni manual.
+     */
+    public Map<String, LocalDateTime> vehiculosEnViaje() throws PersistenciaException {
+        sincronizar();
+        return planDao.regresoDeViajesVigentes();
     }
 
     public RecomendadorEnvio.Recomendacion recomendar() throws PersistenciaException {
@@ -123,7 +140,10 @@ public class GestorPlanes {
         if (comunidades.length == 0) {
             throw new ValidationException("Registre al menos una comunidad.");
         }
-        Vehiculo[] vehiculos = vehiculoDao.listarTodos().toArray(new Vehiculo[0]);
+        Map<String, LocalDateTime> enViaje = planDao.regresoDeViajesVigentes();
+        // Los vehículos que ya salieron en un plan confirmado quedan fuera de cualquier cálculo nuevo.
+        Vehiculo[] vehiculos = vehiculoDao.listarTodos().stream().filter(v -> !enViaje.containsKey(v.getId()))
+                .toArray(Vehiculo[]::new);
 
         Map<String, LocalDateTime> libreDesde = new HashMap<>();
         long segundosPreparacion = Math.round(parametros.preparacionHoras() * 3600);
