@@ -13,6 +13,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JOptionPane;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -33,7 +34,6 @@ public class PanelVehiculos extends JPanel implements Refrescable {
 
     private final JTextField campoId = EstiloUI.campoTexto(10);
     private final JTextField campoCapacidad = EstiloUI.campoTexto(10);
-    private final JTextField campoBusquedaId = EstiloUI.campoTexto(10);
 
     private final DefaultTableModel modeloTabla = new DefaultTableModel(
             new Object[]{"ID", "Capacidad (kg)", "Asignado", "Comunidad asignada", "Centro"}, 0) {
@@ -64,6 +64,7 @@ public class PanelVehiculos extends JPanel implements Refrescable {
 
         JPanel panelSuperior = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         panelSuperior.setOpaque(false);
+        panelSuperior.setPreferredSize(new java.awt.Dimension(900, 230));
 
         JPanel tarjetaFormulario = construirTarjetaFormulario();
         JPanel tarjetaBusqueda = construirTarjetaBusqueda();
@@ -151,22 +152,41 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         return tarjeta;
     }
 
+    private final JLabel resumenFlota = new JLabel(" ");
+
     private JPanel construirTarjetaBusqueda() {
-        JPanel tarjeta = EstiloUI.tarjeta("Buscar vehículos");
+        resumenFlota.setFont(EstiloUI.FUENTE_BASE);
+        resumenFlota.setForeground(EstiloUI.TEXTO_SECUNDARIO);
+        resumenFlota.setVerticalAlignment(javax.swing.SwingConstants.TOP);
+        return BuscadorTarjeta.crear("Buscar vehículos y resumen de la flota", "ID del vehículo:",
+                texto -> buscar(texto), this::cargarTabla, resumenFlota);
+    }
 
-        JPanel fila = EstiloUI.fila();
-        fila.add(EstiloUI.etiqueta("ID:"));
-        fila.add(campoBusquedaId);
-        JButton btnBuscar = EstiloUI.botonNeutro("Buscar");
-        JButton btnListarTodos = EstiloUI.botonNeutro("Listar todos");
-        fila.add(btnBuscar);
-        fila.add(btnListarTodos);
-
-        btnBuscar.addActionListener(e -> buscar());
-        btnListarTodos.addActionListener(e -> cargarTabla());
-
-        tarjeta.add(fila, BorderLayout.CENTER);
-        return tarjeta;
+    /** Texto con totales por centro: vehículos, capacidad y cuántos están asignados a un plan confirmado. */
+    private void actualizarResumenFlota(Vehiculo[] todos) {
+        java.util.Map<String, double[]> porCentro = new java.util.TreeMap<>();
+        double capacidadTotal = 0;
+        int asignados = 0;
+        for (Vehiculo v : todos) {
+            String centro = v.getCentroNombre() == null || v.getCentroNombre().isBlank() ? "Sin centro"
+                    : v.getCentroNombre();
+            double[] acum = porCentro.computeIfAbsent(centro, k -> new double[3]);
+            acum[0]++;
+            acum[1] += v.getCapacidadToneladas();
+            if (v.isAsignado()) {
+                acum[2]++;
+                asignados++;
+            }
+            capacidadTotal += v.getCapacidadToneladas();
+        }
+        StringBuilder sb = new StringBuilder("<html><b>").append(todos.length).append(" vehículos</b> · ")
+                .append(String.format(java.util.Locale.US, "%.1f t por viaje", capacidadTotal)).append(" · ")
+                .append(asignados).append(" asignado(s), ").append(todos.length - asignados).append(" libre(s)<br>");
+        for (java.util.Map.Entry<String, double[]> e : porCentro.entrySet()) {
+            sb.append(String.format(java.util.Locale.US, "&nbsp;&nbsp;• %s: %d veh., %.1f t, %d asignado(s)<br>",
+                    e.getKey(), (int) e.getValue()[0], e.getValue()[1], (int) e.getValue()[2]));
+        }
+        resumenFlota.setText(sb.append("</html>").toString());
     }
 
     private void registrar() {
@@ -241,9 +261,9 @@ public class PanelVehiculos extends JPanel implements Refrescable {
         }
     }
 
-    private void buscar() {
+    private void buscar(String texto) {
         try {
-            llenarTabla(gestor.buscar(campoBusquedaId.getText()));
+            llenarTabla(gestor.buscar(texto));
         } catch (PersistenciaException ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error de base de datos", JOptionPane.ERROR_MESSAGE);
         }
@@ -258,6 +278,11 @@ public class PanelVehiculos extends JPanel implements Refrescable {
     }
 
     private void llenarTabla(Vehiculo[] vehiculos) {
+        try {
+            actualizarResumenFlota(gestor.listarTodos());
+        } catch (PersistenciaException ex) {
+            resumenFlota.setText("No se pudo calcular el resumen: " + ex.getMessage());
+        }
         modeloTabla.setRowCount(0);
         for (Vehiculo v : vehiculos) {
             modeloTabla.addRow(new Object[]{

@@ -84,8 +84,19 @@ public class PanelCentros extends JPanel implements Refrescable {
         arriba.add(tarjetaMapa);
         arriba.setPreferredSize(new java.awt.Dimension(900, 330));
 
+        JPanel abajo = new JPanel(new BorderLayout(0, 12));
+        abajo.setOpaque(false);
+        abajo.add(BuscadorTarjeta.crear("Buscar centros", "Nombre, ciudad, provincia o ID:", texto -> {
+            filtro = texto.toLowerCase(Locale.ROOT);
+            refrescar();
+        }, () -> {
+            filtro = "";
+            refrescar();
+        }, null), BorderLayout.NORTH);
+        abajo.add(tarjetaTabla, BorderLayout.CENTER);
+
         add(arriba, BorderLayout.NORTH);
-        add(tarjetaTabla, BorderLayout.CENTER);
+        add(abajo, BorderLayout.CENTER);
 
         btnRegistrar.addActionListener(e -> registrar());
         btnModificar.addActionListener(e -> modificar());
@@ -287,6 +298,9 @@ public class PanelCentros extends JPanel implements Refrescable {
             centros = new ArrayList<>(gestor.listar());
             modelo.setRowCount(0);
             for (CentroAcopio c : centros) {
+                if (!coincideConFiltro(c)) {
+                    continue;
+                }
                 modelo.addRow(new Object[]{c.getId(), c.getNombre(), c.getDireccion(), c.getCiudad(), c.getProvincia(),
                         String.format(Locale.US, "%.1f", c.getStockToneladas())});
             }
@@ -296,6 +310,18 @@ public class PanelCentros extends JPanel implements Refrescable {
         }
         // Importante: aquí NO se limpia el formulario; si no, el temporizador o el cambio de pestaña
         // borrarían lo que el usuario está escribiendo.
+    }
+
+    /** Texto de búsqueda activo (vacío = todos). Se conserva en los refrescos automáticos. */
+    private String filtro = "";
+
+    private boolean coincideConFiltro(CentroAcopio c) {
+        if (filtro.isEmpty()) {
+            return true;
+        }
+        return String.valueOf(c.getId()).equals(filtro)
+                || (c.getNombre() + " " + c.getCiudad() + " " + c.getProvincia() + " " + c.getDireccion())
+                .toLowerCase(Locale.ROOT).contains(filtro);
     }
 
     private static UbicacionAutomatica ubicacion(double lat, double lon) {

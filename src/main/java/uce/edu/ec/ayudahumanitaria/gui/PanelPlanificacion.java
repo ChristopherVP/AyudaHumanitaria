@@ -67,9 +67,16 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
     private final Map<String, Integer> eleccion = new LinkedHashMap<>();
     private List<ResumenCentro> resumenes = List.of();
     private boolean cargandoFlota;
+    private boolean ajustandoModo;
+    /** Motivo de cada vehículo sugerido por los algoritmos (vacío para los elegidos a mano). */
+    private Map<String, String> motivos = Map.of();
+    private final JComboBox<String> comboModo = new JComboBox<>(new String[]{
+            "Automático (los algoritmos eligen)",
+            "Manual (yo elijo)"});
+    private final JComboBox<Object> comboCentros = new JComboBox<>();
 
     private final DefaultTableModel modeloFlota = new DefaultTableModel(
-            new Object[]{"Enviar", "Vehículo", "Centro", "Capacidad (t)", "Viajes"}, 0) {
+            new Object[]{"Enviar", "Vehículo", "Centro", "Capacidad (t)", "Viajes", "Por qué (algoritmo)"}, 0) {
         @Override
         public boolean isCellEditable(int fila, int columna) {
             return columna == 0 || columna == 4;
@@ -162,6 +169,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
             if (!cargandoFlota) {
                 leerEleccionDeLaTabla();
                 pintarSituacion();
+                pasarAManual();
             }
         });
         tablaViajes.getSelectionModel().addListSelectionListener(e -> {
@@ -181,6 +189,21 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
     private JPanel construirCabecera() {
         JPanel tarjeta = EstiloUI.tarjeta("2) Fecha de salida y simulación");
+        JPanel filaModo = EstiloUI.fila();
+        filaModo.add(EstiloUI.etiqueta("Modo:"));
+        filaModo.add(comboModo);
+        filaModo.add(EstiloUI.etiqueta("Centros que participan:"));
+        comboCentros.setPreferredSize(new java.awt.Dimension(340, comboCentros.getPreferredSize().height));
+        comboCentros.setRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> lista, Object valor,
+                                                                   int indice, boolean sel, boolean foco) {
+                String texto = valor instanceof ResumenCentro r ? r.centro().getNombre() + " (solo este centro)"
+                        : String.valueOf(valor);
+                return super.getListCellRendererComponent(lista, texto, indice, sel, foco);
+            }
+        });
+        filaModo.add(comboCentros);
         JPanel fila = EstiloUI.fila();
         fila.add(EstiloUI.etiqueta("Salida (fecha y hora):"));
         fila.add(selectorSalida);
@@ -190,7 +213,11 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         fila.add(btnActualizar);
         JPanel contenido = new JPanel(new BorderLayout(0, 4));
         contenido.setOpaque(false);
-        contenido.add(fila, BorderLayout.NORTH);
+        JPanel controles = new JPanel(new java.awt.GridLayout(0, 1, 0, 0));
+        controles.setOpaque(false);
+        controles.add(filaModo);
+        controles.add(fila);
+        contenido.add(controles, BorderLayout.NORTH);
         contenido.add(resumen, BorderLayout.SOUTH);
         tarjeta.add(contenido, BorderLayout.CENTER);
         return tarjeta;
@@ -200,8 +227,8 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         JPanel tarjeta = EstiloUI.tarjeta("1) Elija qué vehículos envía cada centro y cuántos viajes hace cada uno");
         EstiloUI.estilizarTabla(tablaFlota);
         EstiloUI.estilizarTabla(tablaSituacion);
-        Tablas.anchos(tablaFlota, 55, 80, 110, 90, 60);
-        Tablas.anchos(tablaSituacion, 100, 330, 85, 70, 80, 120, 210);
+        Tablas.anchos(tablaFlota, 55, 90, 110, 90, 60, 520);
+        Tablas.anchos(tablaSituacion, 100, 480, 90, 80, 90, 130, 230);
         JComboBox<Integer> viajes = new JComboBox<>();
         for (int i = 1; i <= SeleccionEnvio.MAX_VIAJES_POR_VEHICULO; i++) {
             viajes.addItem(i);
@@ -219,10 +246,11 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
         JScrollPane scrollFlota = new JScrollPane(tablaFlota);
         JScrollPane scrollSituacion = new JScrollPane(tablaSituacion);
-        JSplitPane division = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollFlota, scrollSituacion);
-        division.setResizeWeight(0.32);
-        division.setBorder(null);
-        division.setPreferredSize(new java.awt.Dimension(900, 230));
+        JPanel division = new JPanel(new java.awt.GridLayout(2, 1, 0, 8));
+        division.setOpaque(false);
+        division.add(scrollFlota);
+        division.add(scrollSituacion);
+        division.setPreferredSize(new java.awt.Dimension(900, 400));
 
         JPanel botones = EstiloUI.fila();
         botones.add(btnTodos);
@@ -241,7 +269,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
     private JPanel construirCentro() {
         EstiloUI.estilizarTabla(tablaViajes);
-        Tablas.anchos(tablaViajes, 30, 100, 80, 55, 70, 55, 55, 115, 115, 85, 420);
+        Tablas.anchos(tablaViajes, 35, 110, 80, 60, 70, 60, 60, 130, 130, 95, 380);
         Tablas.anchos(tablaHistorial, 45, 115, 115, 115, 55, 80, 60, 90);
         EstiloUI.estilizarTabla(tablaHistorial);
         JTable tablaPendientes = new JTable(modeloPendientes);
@@ -259,26 +287,23 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         pestanas.addTab("Bitácora de algoritmos", new JScrollPane(areaBitacora));
         pestanas.addTab("Historial de planes", new JScrollPane(tablaHistorial));
 
-        JPanel tarjetaViajes = EstiloUI.tarjeta("Viajes del plan");
-        JPanel izquierda = new JPanel(new BorderLayout(0, 10));
-        izquierda.setOpaque(false);
+        JPanel tarjetaViajes = EstiloUI.tarjeta("Viajes del plan (seleccione uno para ver su itinerario y su ruta)");
         tarjetaViajes.add(new JScrollPane(tablaViajes), BorderLayout.CENTER);
-        izquierda.add(tarjetaViajes, BorderLayout.CENTER);
+        tarjetaViajes.setPreferredSize(new java.awt.Dimension(900, 330));
 
         JPanel tarjetaMapa = EstiloUI.tarjeta("Ruta del viaje seleccionado");
         tarjetaMapa.add(mapa, BorderLayout.CENTER);
 
         JPanel fila = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         fila.setOpaque(false);
-        fila.add(izquierda);
+        fila.add(pestanas);
         fila.add(tarjetaMapa);
-        fila.setPreferredSize(new java.awt.Dimension(900, 400));
-        pestanas.setPreferredSize(new java.awt.Dimension(900, 300));
+        fila.setPreferredSize(new java.awt.Dimension(900, 420));
 
         JPanel contenedor = new JPanel(new BorderLayout(0, 12));
         contenedor.setOpaque(false);
-        contenedor.add(fila, BorderLayout.NORTH);
-        contenedor.add(pestanas, BorderLayout.CENTER);
+        contenedor.add(tarjetaViajes, BorderLayout.NORTH);
+        contenedor.add(fila, BorderLayout.CENTER);
         return contenedor;
     }
 
@@ -288,8 +313,15 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         try {
             Date fecha = (Date) selectorSalida.getValue();
             LocalDateTime salida = LocalDateTime.ofInstant(fecha.toInstant(), ZoneId.systemDefault());
-            leerEleccionDeLaTabla();
-            PlanDistribucion plan = gestorPlanes.simular(salida, new SeleccionEnvio(eleccion));
+            PlanDistribucion plan;
+            if (esAutomatico()) {
+                GestorPlanes.ResultadoRapido r = gestorPlanes.simularAutomatico(salida, centroElegido());
+                aplicarEleccion(r.recomendacion().seleccion(), r.recomendacion().motivos());
+                plan = r.plan();
+            } else {
+                leerEleccionDeLaTabla();
+                plan = gestorPlanes.simular(salida, new SeleccionEnvio(eleccion));
+            }
             mostrarPlan(plan);
             tablaHistorial.clearSelection();
             btnConfirmar.setEnabled(!plan.estaVacio());
@@ -307,8 +339,8 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
     private void recomendar() {
         try {
-            RecomendadorEnvio.Recomendacion r = gestorPlanes.recomendar();
-            aplicarEleccion(r.seleccion());
+            RecomendadorEnvio.Recomendacion r = gestorPlanes.recomendar(centroElegido());
+            aplicarEleccion(r.seleccion(), r.motivos());
             JOptionPane.showMessageDialog(this, String.join("\n\n", r.explicacion())
                             + "\n\nEs solo una sugerencia: puede cambiar vehículos y viajes antes de simular.",
                     "Recomendación (Greedy)", JOptionPane.INFORMATION_MESSAGE);
@@ -321,7 +353,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
     private void simulacionRapida() {
         try {
             GestorPlanes.ResultadoRapido r = gestorPlanes.simulacionRapida();
-            aplicarEleccion(r.recomendacion().seleccion());
+            aplicarEleccion(r.recomendacion().seleccion(), r.recomendacion().motivos());
             selectorSalida.setValue(Date.from(r.plan().salidaProgramada().atZone(ZoneId.systemDefault()).toInstant()));
             mostrarPlan(r.plan());
             tablaHistorial.clearSelection();
@@ -341,7 +373,26 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
 
     /** Marca en la tabla la elección recibida (p. ej. desde la recomendación de la sección de algoritmos). */
     public void aplicarSeleccion(SeleccionEnvio seleccion) {
-        aplicarEleccion(seleccion);
+        aplicarEleccion(seleccion, Map.of());
+    }
+
+    private boolean esAutomatico() {
+        return comboModo.getSelectedIndex() == 0;
+    }
+
+    /** Id del centro elegido, o {@code null} si participan todos (cada comunidad va al centro más cercano). */
+    private Integer centroElegido() {
+        return comboCentros.getSelectedItem() instanceof ResumenCentro r ? r.centro().getId() : null;
+    }
+
+    /** Si el usuario toca la tabla, deja de ser automático: sus cambios mandan. */
+    private void pasarAManual() {
+        if (!ajustandoModo && esAutomatico()) {
+            ajustandoModo = true;
+            comboModo.setSelectedIndex(1);
+            motivos = Map.of();
+            ajustandoModo = false;
+        }
     }
 
     private void marcarTodos(boolean marcar) {
@@ -353,11 +404,14 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
                 }
             }
         }
+        motivos = Map.of();
         llenarFlota();
         pintarSituacion();
+        pasarAManual();
     }
 
-    private void aplicarEleccion(SeleccionEnvio seleccion) {
+    private void aplicarEleccion(SeleccionEnvio seleccion, Map<String, String> nuevosMotivos) {
+        motivos = nuevosMotivos;
         eleccion.clear();
         eleccion.putAll(seleccion.viajesPorVehiculo());
         llenarFlota();
@@ -374,6 +428,21 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         }
     }
 
+    private void actualizarComboCentros() {
+        Integer anterior = centroElegido();
+        ajustandoModo = true;
+        comboCentros.removeAllItems();
+        comboCentros.addItem("Todos (cada comunidad va al centro más cercano)");
+        for (ResumenCentro r : resumenes) {
+            comboCentros.addItem(r);
+        }
+        if (anterior != null) {
+            resumenes.stream().filter(r -> r.centro().getId() == anterior).findFirst()
+                    .ifPresent(comboCentros::setSelectedItem);
+        }
+        ajustandoModo = false;
+    }
+
     private void llenarFlota() {
         if (tablaFlota.isEditing()) {
             return;
@@ -384,7 +453,8 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
             for (Vehiculo v : r.flota()) {
                 int viajes = eleccion.getOrDefault(v.getId(), 0);
                 modeloFlota.addRow(new Object[]{viajes > 0, v.getId(), r.centro().getCiudad(),
-                        FormatoPlan.numero(v.getCapacidadToneladas(), 1), Math.max(1, viajes)});
+                        FormatoPlan.numero(v.getCapacidadToneladas(), 1), Math.max(1, viajes),
+                        viajes > 0 ? motivos.getOrDefault(v.getId(), "Elegido por usted") : ""});
             }
         }
         cargandoFlota = false;
@@ -481,6 +551,7 @@ public class PanelPlanificacion extends JPanel implements Refrescable {
         try {
             historial = new ArrayList<>(gestorPlanes.listarPlanes());
             resumenes = gestorPlanes.resumenPorCentro();
+            actualizarComboCentros();
             eleccion.keySet().removeIf(id -> resumenes.stream().noneMatch(
                     r -> r.flota().stream().anyMatch(v -> v.getId().equals(id))));
             llenarFlota();

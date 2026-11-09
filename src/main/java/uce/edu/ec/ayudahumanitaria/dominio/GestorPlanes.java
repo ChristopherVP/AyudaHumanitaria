@@ -90,7 +90,23 @@ public class GestorPlanes {
     }
 
     public RecomendadorEnvio.Recomendacion recomendar() throws PersistenciaException {
-        return RecomendadorEnvio.recomendar(resumenPorCentro());
+        return recomendar(null);
+    }
+
+    /** Recomendación limitada a un centro ({@code null} = todos: cada comunidad va a su centro más cercano). */
+    public RecomendadorEnvio.Recomendacion recomendar(Integer centroId) throws PersistenciaException {
+        return RecomendadorEnvio.recomendar(RecomendadorEnvio.filtrarPorCentro(resumenPorCentro(), centroId));
+    }
+
+    /** Simula con la recomendación automática, opcionalmente solo con un centro. */
+    public ResultadoRapido simularAutomatico(LocalDateTime salida, Integer centroId)
+            throws ValidationException, PersistenciaException {
+        RecomendadorEnvio.Recomendacion recomendacion = recomendar(centroId);
+        if (recomendacion.seleccion().estaVacia()) {
+            throw new ValidationException("Los algoritmos no encontraron necesidades con stock y vehículos para "
+                    + "enviar (revise el centro elegido, el stock y la flota).");
+        }
+        return new ResultadoRapido(recomendacion, simular(salida, recomendacion.seleccion()));
     }
 
     private PlanDistribucion calcular(LocalDateTime salida, SeleccionEnvio seleccion)

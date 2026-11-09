@@ -29,7 +29,20 @@ public final class RecomendadorEnvio {
         }
     }
 
-    public record Recomendacion(SeleccionEnvio seleccion, List<String> explicacion) {
+    /**
+     * @param seleccion   vehículos y viajes sugeridos
+     * @param explicacion una línea por centro
+     * @param motivos     id de vehículo → por qué se sugiere (para mostrarlo junto a cada vehículo)
+     */
+    public record Recomendacion(SeleccionEnvio seleccion, List<String> explicacion, Map<String, String> motivos) {
+    }
+
+    /** Solo el resumen del centro indicado (o todos si {@code centroId} es {@code null}). */
+    public static List<ResumenCentro> filtrarPorCentro(List<ResumenCentro> resumenes, Integer centroId) {
+        if (centroId == null) {
+            return resumenes;
+        }
+        return resumenes.stream().filter(r -> r.centro().getId() == centroId).toList();
     }
 
     /** Un resumen por centro, con las necesidades pendientes (ya descontado lo planificado) de sus comunidades. */
@@ -71,6 +84,7 @@ public final class RecomendadorEnvio {
     public static Recomendacion recomendar(List<ResumenCentro> resumenes) {
         Map<String, Integer> viajes = new LinkedHashMap<>();
         List<String> explicacion = new ArrayList<>();
+        Map<String, String> motivos = new LinkedHashMap<>();
         for (ResumenCentro r : resumenes) {
             if (r.enviableToneladas() <= TOLERANCIA_TON) {
                 continue;
@@ -91,6 +105,10 @@ public final class RecomendadorEnvio {
                 }
                 locales.put(v.getId(), 1);
                 cubierto += v.getCapacidadToneladas();
+                motivos.put(v.getId(), String.format(Locale.US,
+                        "Mayor capacidad libre de %s (%.1f t): con él se cubren %.1f de %.1f t a enviar",
+                        r.centro().getCiudad(), v.getCapacidadToneladas(), Math.min(cubierto, r.enviableToneladas()),
+                        r.enviableToneladas()));
             }
             // Si no alcanza con un viaje por vehículo, se agregan viajes en rondas (greedy por capacidad).
             boolean progreso = true;
@@ -104,6 +122,9 @@ public final class RecomendadorEnvio {
                     if (actuales < MAX_VIAJES_SUGERIDOS) {
                         locales.put(v.getId(), actuales + 1);
                         cubierto += v.getCapacidadToneladas();
+                        motivos.put(v.getId(), String.format(Locale.US,
+                                "La flota de %s no alcanza en un viaje: repite hasta %d viaje(s) para cubrir %.1f t",
+                                r.centro().getCiudad(), actuales + 1, r.enviableToneladas()));
                         progreso = true;
                     }
                 }
@@ -119,6 +140,6 @@ public final class RecomendadorEnvio {
         if (explicacion.isEmpty()) {
             explicacion.add("No hay necesidades pendientes con stock disponible: no hace falta enviar vehículos.");
         }
-        return new Recomendacion(new SeleccionEnvio(viajes), List.copyOf(explicacion));
+        return new Recomendacion(new SeleccionEnvio(viajes), List.copyOf(explicacion), Map.copyOf(motivos));
     }
 }

@@ -86,10 +86,6 @@ public class PanelComunidades extends JPanel implements Refrescable {
         setBackground(EstiloUI.FONDO_APP);
         setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
-        JPanel formularioYBusqueda = new JPanel(new BorderLayout(0, 12));
-        formularioYBusqueda.setOpaque(false);
-        formularioYBusqueda.add(construirFormulario(), BorderLayout.NORTH);
-        formularioYBusqueda.add(construirBusqueda(), BorderLayout.CENTER);
 
         EstiloUI.estilizarTabla(tabla);
         tabla.setAutoCreateRowSorter(true);
@@ -104,13 +100,18 @@ public class PanelComunidades extends JPanel implements Refrescable {
 
         JPanel arriba = new JPanel(new java.awt.GridLayout(1, 2, 12, 0));
         arriba.setOpaque(false);
-        arriba.add(formularioYBusqueda);
+        arriba.add(construirFormulario());
         arriba.add(tarjetaMapa);
-        arriba.setPreferredSize(new java.awt.Dimension(900, 400));
+        arriba.setPreferredSize(new java.awt.Dimension(900, 380));
         tarjetaTabla.setPreferredSize(new java.awt.Dimension(900, 340));
 
+        JPanel abajo = new JPanel(new BorderLayout(0, 12));
+        abajo.setOpaque(false);
+        abajo.add(construirBusqueda(), BorderLayout.NORTH);
+        abajo.add(tarjetaTabla, BorderLayout.CENTER);
+
         add(arriba, BorderLayout.NORTH);
-        add(tarjetaTabla, BorderLayout.CENTER);
+        add(abajo, BorderLayout.CENTER);
 
         btnRegistrar.addActionListener(e -> registrar());
         btnModificar.addActionListener(e -> modificar());
@@ -178,23 +179,15 @@ public class PanelComunidades extends JPanel implements Refrescable {
     }
 
     private JPanel construirBusqueda() {
-        JPanel tarjeta = EstiloUI.tarjeta("Buscar comunidades");
-        JPanel fila = EstiloUI.fila();
-        fila.add(EstiloUI.etiqueta("Nombre:"));
-        fila.add(campoBusqueda);
-        JButton buscar = EstiloUI.botonNeutro("Buscar");
-        JButton todas = EstiloUI.botonNeutro("Listar todas");
-        fila.add(buscar);
-        fila.add(todas);
-        fila.add(EstiloUI.etiqueta("ID:"));
-        fila.add(campoBusquedaId);
-        JButton porId = EstiloUI.botonNeutro("Buscar por ID");
-        fila.add(porId);
-        buscar.addActionListener(e -> buscar());
-        todas.addActionListener(e -> refrescar());
-        porId.addActionListener(e -> buscarPorId());
-        tarjeta.add(fila, BorderLayout.CENTER);
-        return tarjeta;
+        return BuscadorTarjeta.crear("Buscar comunidades", "Nombre o ID:", texto -> {
+            if (texto.matches("\\d+")) {
+                campoBusquedaId.setText(texto);
+                buscarPorId();
+            } else {
+                campoBusqueda.setText(texto);
+                buscar();
+            }
+        }, this::refrescar, null);
     }
 
     // ------------------------------------------------------------------ acciones

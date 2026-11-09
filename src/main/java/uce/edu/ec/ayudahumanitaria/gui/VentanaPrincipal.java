@@ -141,7 +141,7 @@ public class VentanaPrincipal extends JFrame {
         pestanas.addTab("Centros", Pagina.de(panelCentros, 780));
         pestanas.addTab("Comunidades", Pagina.de(panelComunidades, 860));
         pestanas.addTab("Vehículos", Pagina.de(panelVehiculos, 720));
-        pestanas.addTab("Logística", Pagina.de(panelLogistica, 1950));
+        pestanas.addTab("Logística", Pagina.de(panelLogistica, 2200));
         pestanas.addTab("Reportes", Pagina.de(panelReportes, 620));
         pestanas.addTab("Ayuda", new PanelAyuda());
         return pestanas;
