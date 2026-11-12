@@ -1,5 +1,18 @@
-# Project exclude paths
-/target/
+# Maven
+target/
 
-# Base de datos H2 en archivo (se crea al ejecutar)
-/data/
+# NetBeans (nbactions.xml contiene la clave de la base de datos: NO se sube)
+nbactions.xml
+nb-configuration.xml
+nbproject/private/
+
+# Base de datos local H2 (modo sin PostgreSQL)
+data/
+
+# Otros
+*.log
+.idea/
+*.iml
+
+# Datos de conexión locales (clave de PostgreSQL)
+db.properties

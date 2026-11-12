@@ -269,24 +269,7 @@ public class PlanDAO {
             try (Statement st = con.createStatement()) {
                 st.executeUpdate("UPDATE VEHICULO SET ASIGNADO = FALSE, COMUNIDAD_ASIGNADA = NULL");
             }
-            // Primer viaje vigente (el más próximo en el tiempo) de cada vehículo.
-            Map<String, String> etiquetas = new LinkedHashMap<>();
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery(
-                         "SELECT V.ID, V.VEHICULO_ID, V.CENTRO_NOMBRE, "
-                                 + "(SELECT LISTAGG(P.COMUNIDAD_NOMBRE, ', ') WITHIN GROUP (ORDER BY P.ORDEN) "
-                                 + " FROM PARADA P WHERE P.VIAJE_ID = V.ID) AS DESTINOS "
-                                 + "FROM VIAJE V WHERE V.ESTADO IN ('PLANIFICADO','EN_RUTA') AND V.VEHICULO_ID IS NOT NULL "
-                                 + "ORDER BY V.SALIDA")) {
-                while (rs.next()) {
-                    String destinos = rs.getString("DESTINOS");
-                    String texto = destinos == null ? "" : destinos;
-                    if (texto.length() > 95) {
-                        texto = texto.substring(0, 92) + "...";
-                    }
-                    etiquetas.putIfAbsent(rs.getString("VEHICULO_ID"), texto);
-                }
-            }
+            Map<String, String> etiquetas = etiquetasPorVehiculo(con);
             for (Map.Entry<String, String> e : etiquetas.entrySet()) {
                 try (PreparedStatement ps = con.prepareStatement(
                         "UPDATE VEHICULO SET ASIGNADO = TRUE, COMUNIDAD_ASIGNADA = ? WHERE ID = ?")) {
@@ -298,6 +281,38 @@ public class PlanDAO {
         } catch (SQLException ex) {
             throw new PersistenciaException("No se pudo actualizar el estado de los viajes.", ex);
         }
+    }
+
+    /**
+     * Primer viaje vigente (el más próximo en el tiempo) de cada vehículo y sus destinos en orden.
+     * Los destinos se unen en Java (no con LISTAGG/STRING_AGG) para que funcione igual en H2 y PostgreSQL.
+     */
+    private Map<String, String> etiquetasPorVehiculo(Connection con) throws SQLException {
+        Map<String, Integer> primerViaje = new LinkedHashMap<>();
+        Map<String, List<String>> destinos = new LinkedHashMap<>();
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT V.ID, V.VEHICULO_ID, P.COMUNIDAD_NOMBRE FROM VIAJE V "
+                             + "LEFT JOIN PARADA P ON P.VIAJE_ID = V.ID "
+                             + "WHERE V.ESTADO IN ('PLANIFICADO','EN_RUTA') AND V.VEHICULO_ID IS NOT NULL "
+                             + "ORDER BY V.SALIDA, V.ID, P.ORDEN")) {
+            while (rs.next()) {
+                String vehiculo = rs.getString("VEHICULO_ID");
+                int viaje = rs.getInt("ID");
+                primerViaje.putIfAbsent(vehiculo, viaje);
+                List<String> lista = destinos.computeIfAbsent(vehiculo, k -> new ArrayList<>());
+                String comunidad = rs.getString("COMUNIDAD_NOMBRE");
+                if (primerViaje.get(vehiculo) == viaje && comunidad != null) {
+                    lista.add(comunidad);
+                }
+            }
+        }
+        Map<String, String> etiquetas = new LinkedHashMap<>();
+        destinos.forEach((vehiculo, lista) -> {
+            String texto = String.join(", ", lista);
+            etiquetas.put(vehiculo, texto.length() > 95 ? texto.substring(0, 92) + "..." : texto);
+        });
+        return etiquetas;
     }
 
     /** Toneladas ya comprometidas por comunidad en viajes no cancelados. */
